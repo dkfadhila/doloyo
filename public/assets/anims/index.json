@@ -1,0 +1,521 @@
+{
+ "license": "CC0 1.0, Quaternius",
+ "clips": [
+  {
+   "id": "ual1/A_TPose",
+   "file": "ual1",
+   "name": "A_TPose",
+   "duration": 2.5
+  },
+  {
+   "id": "ual1/Crouch_Fwd_Loop",
+   "file": "ual1",
+   "name": "Crouch_Fwd_Loop",
+   "duration": 2
+  },
+  {
+   "id": "ual1/Crouch_Idle_Loop",
+   "file": "ual1",
+   "name": "Crouch_Idle_Loop",
+   "duration": 2.933
+  },
+  {
+   "id": "ual1/Dance_Loop",
+   "file": "ual1",
+   "name": "Dance_Loop",
+   "duration": 1
+  },
+  {
+   "id": "ual1/Death01",
+   "file": "ual1",
+   "name": "Death01",
+   "duration": 2.4
+  },
+  {
+   "id": "ual1/Driving_Loop",
+   "file": "ual1",
+   "name": "Driving_Loop",
+   "duration": 1.667
+  },
+  {
+   "id": "ual1/Fixing_Kneeling",
+   "file": "ual1",
+   "name": "Fixing_Kneeling",
+   "duration": 5.2
+  },
+  {
+   "id": "ual1/Hit_Chest",
+   "file": "ual1",
+   "name": "Hit_Chest",
+   "duration": 0.333
+  },
+  {
+   "id": "ual1/Hit_Head",
+   "file": "ual1",
+   "name": "Hit_Head",
+   "duration": 0.433
+  },
+  {
+   "id": "ual1/Idle_Loop",
+   "file": "ual1",
+   "name": "Idle_Loop",
+   "duration": 2.5
+  },
+  {
+   "id": "ual1/Idle_Talking_Loop",
+   "file": "ual1",
+   "name": "Idle_Talking_Loop",
+   "duration": 2.933
+  },
+  {
+   "id": "ual1/Idle_Torch_Loop",
+   "file": "ual1",
+   "name": "Idle_Torch_Loop",
+   "duration": 1.267
+  },
+  {
+   "id": "ual1/Interact",
+   "file": "ual1",
+   "name": "Interact",
+   "duration": 2
+  },
+  {
+   "id": "ual1/Jog_Fwd_Loop",
+   "file": "ual1",
+   "name": "Jog_Fwd_Loop",
+   "duration": 0.933
+  },
+  {
+   "id": "ual1/Jump_Land",
+   "file": "ual1",
+   "name": "Jump_Land",
+   "duration": 1.267
+  },
+  {
+   "id": "ual1/Jump_Loop",
+   "file": "ual1",
+   "name": "Jump_Loop",
+   "duration": 2.5
+  },
+  {
+   "id": "ual1/Jump_Start",
+   "file": "ual1",
+   "name": "Jump_Start",
+   "duration": 1.333
+  },
+  {
+   "id": "ual1/PickUp_Table",
+   "file": "ual1",
+   "name": "PickUp_Table",
+   "duration": 0.833
+  },
+  {
+   "id": "ual1/Pistol_Aim_Down",
+   "file": "ual1",
+   "name": "Pistol_Aim_Down",
+   "duration": 0.167
+  },
+  {
+   "id": "ual1/Pistol_Aim_Neutral",
+   "file": "ual1",
+   "name": "Pistol_Aim_Neutral",
+   "duration": 0.167
+  },
+  {
+   "id": "ual1/Pistol_Aim_Up",
+   "file": "ual1",
+   "name": "Pistol_Aim_Up",
+   "duration": 0.167
+  },
+  {
+   "id": "ual1/Pistol_Idle_Loop",
+   "file": "ual1",
+   "name": "Pistol_Idle_Loop",
+   "duration": 1.667
+  },
+  {
+   "id": "ual1/Pistol_Reload",
+   "file": "ual1",
+   "name": "Pistol_Reload",
+   "duration": 1.667
+  },
+  {
+   "id": "ual1/Pistol_Shoot",
+   "file": "ual1",
+   "name": "Pistol_Shoot",
+   "duration": 0.633
+  },
+  {
+   "id": "ual1/Punch_Cross",
+   "file": "ual1",
+   "name": "Punch_Cross",
+   "duration": 1
+  },
+  {
+   "id": "ual1/Punch_Jab",
+   "file": "ual1",
+   "name": "Punch_Jab",
+   "duration": 0.867
+  },
+  {
+   "id": "ual1/Push_Loop",
+   "file": "ual1",
+   "name": "Push_Loop",
+   "duration": 2.667
+  },
+  {
+   "id": "ual1/Roll",
+   "file": "ual1",
+   "name": "Roll",
+   "duration": 1.467
+  },
+  {
+   "id": "ual1/Sitting_Enter",
+   "file": "ual1",
+   "name": "Sitting_Enter",
+   "duration": 1.3
+  },
+  {
+   "id": "ual1/Sitting_Exit",
+   "file": "ual1",
+   "name": "Sitting_Exit",
+   "duration": 1.033
+  },
+  {
+   "id": "ual1/Sitting_Idle_Loop",
+   "file": "ual1",
+   "name": "Sitting_Idle_Loop",
+   "duration": 1.667
+  },
+  {
+   "id": "ual1/Sitting_Talking_Loop",
+   "file": "ual1",
+   "name": "Sitting_Talking_Loop",
+   "duration": 2.933
+  },
+  {
+   "id": "ual1/Spell_Simple_Enter",
+   "file": "ual1",
+   "name": "Spell_Simple_Enter",
+   "duration": 0.533
+  },
+  {
+   "id": "ual1/Spell_Simple_Exit",
+   "file": "ual1",
+   "name": "Spell_Simple_Exit",
+   "duration": 0.433
+  },
+  {
+   "id": "ual1/Spell_Simple_Idle_Loop",
+   "file": "ual1",
+   "name": "Spell_Simple_Idle_Loop",
+   "duration": 2.1
+  },
+  {
+   "id": "ual1/Spell_Simple_Shoot",
+   "file": "ual1",
+   "name": "Spell_Simple_Shoot",
+   "duration": 0.5
+  },
+  {
+   "id": "ual1/Sprint_Loop",
+   "file": "ual1",
+   "name": "Sprint_Loop",
+   "duration": 0.667
+  },
+  {
+   "id": "ual1/Swim_Fwd_Loop",
+   "file": "ual1",
+   "name": "Swim_Fwd_Loop",
+   "duration": 1.333
+  },
+  {
+   "id": "ual1/Swim_Idle_Loop",
+   "file": "ual1",
+   "name": "Swim_Idle_Loop",
+   "duration": 3.333
+  },
+  {
+   "id": "ual1/Sword_Attack",
+   "file": "ual1",
+   "name": "Sword_Attack",
+   "duration": 1.533
+  },
+  {
+   "id": "ual1/Sword_Idle",
+   "file": "ual1",
+   "name": "Sword_Idle",
+   "duration": 1.667
+  },
+  {
+   "id": "ual1/Walk_Formal_Loop",
+   "file": "ual1",
+   "name": "Walk_Formal_Loop",
+   "duration": 1.333
+  },
+  {
+   "id": "ual1/Walk_Loop",
+   "file": "ual1",
+   "name": "Walk_Loop",
+   "duration": 1.333
+  },
+  {
+   "id": "ual2/A_TPose",
+   "file": "ual2",
+   "name": "A_TPose",
+   "duration": 2.5
+  },
+  {
+   "id": "ual2/Chest_Open",
+   "file": "ual2",
+   "name": "Chest_Open",
+   "duration": 1.367
+  },
+  {
+   "id": "ual2/ClimbUp_1m",
+   "file": "ual2",
+   "name": "ClimbUp_1m",
+   "duration": 0.667
+  },
+  {
+   "id": "ual2/Consume",
+   "file": "ual2",
+   "name": "Consume",
+   "duration": 1.333
+  },
+  {
+   "id": "ual2/Farm_Harvest",
+   "file": "ual2",
+   "name": "Farm_Harvest",
+   "duration": 2.5
+  },
+  {
+   "id": "ual2/Farm_PlantSeed",
+   "file": "ual2",
+   "name": "Farm_PlantSeed",
+   "duration": 2.767
+  },
+  {
+   "id": "ual2/Farm_Watering",
+   "file": "ual2",
+   "name": "Farm_Watering",
+   "duration": 3.8
+  },
+  {
+   "id": "ual2/Hit_Knockback",
+   "file": "ual2",
+   "name": "Hit_Knockback",
+   "duration": 0.833
+  },
+  {
+   "id": "ual2/Idle_FoldArms_Loop",
+   "file": "ual2",
+   "name": "Idle_FoldArms_Loop",
+   "duration": 2.5
+  },
+  {
+   "id": "ual2/Idle_Lantern_Loop",
+   "file": "ual2",
+   "name": "Idle_Lantern_Loop",
+   "duration": 2.5
+  },
+  {
+   "id": "ual2/Idle_No_Loop",
+   "file": "ual2",
+   "name": "Idle_No_Loop",
+   "duration": 2.5
+  },
+  {
+   "id": "ual2/Idle_Rail_Call",
+   "file": "ual2",
+   "name": "Idle_Rail_Call",
+   "duration": 2.5
+  },
+  {
+   "id": "ual2/Idle_Rail_Loop",
+   "file": "ual2",
+   "name": "Idle_Rail_Loop",
+   "duration": 2.5
+  },
+  {
+   "id": "ual2/Idle_Shield_Break",
+   "file": "ual2",
+   "name": "Idle_Shield_Break",
+   "duration": 1.067
+  },
+  {
+   "id": "ual2/Idle_Shield_Loop",
+   "file": "ual2",
+   "name": "Idle_Shield_Loop",
+   "duration": 2.5
+  },
+  {
+   "id": "ual2/Idle_TalkingPhone_Loop",
+   "file": "ual2",
+   "name": "Idle_TalkingPhone_Loop",
+   "duration": 2.933
+  },
+  {
+   "id": "ual2/LayToIdle",
+   "file": "ual2",
+   "name": "LayToIdle",
+   "duration": 1.533
+  },
+  {
+   "id": "ual2/Melee_Hook",
+   "file": "ual2",
+   "name": "Melee_Hook",
+   "duration": 0.467
+  },
+  {
+   "id": "ual2/Melee_Hook_Rec",
+   "file": "ual2",
+   "name": "Melee_Hook_Rec",
+   "duration": 0.6
+  },
+  {
+   "id": "ual2/NinjaJump_Idle_Loop",
+   "file": "ual2",
+   "name": "NinjaJump_Idle_Loop",
+   "duration": 2
+  },
+  {
+   "id": "ual2/NinjaJump_Land",
+   "file": "ual2",
+   "name": "NinjaJump_Land",
+   "duration": 1.267
+  },
+  {
+   "id": "ual2/NinjaJump_Start",
+   "file": "ual2",
+   "name": "NinjaJump_Start",
+   "duration": 0.967
+  },
+  {
+   "id": "ual2/OverhandThrow",
+   "file": "ual2",
+   "name": "OverhandThrow",
+   "duration": 1.333
+  },
+  {
+   "id": "ual2/Shield_Dash",
+   "file": "ual2",
+   "name": "Shield_Dash",
+   "duration": 1.1
+  },
+  {
+   "id": "ual2/Shield_OneShot",
+   "file": "ual2",
+   "name": "Shield_OneShot",
+   "duration": 0.833
+  },
+  {
+   "id": "ual2/Slide_Exit",
+   "file": "ual2",
+   "name": "Slide_Exit",
+   "duration": 0.5
+  },
+  {
+   "id": "ual2/Slide_Loop",
+   "file": "ual2",
+   "name": "Slide_Loop",
+   "duration": 2
+  },
+  {
+   "id": "ual2/Slide_Start",
+   "file": "ual2",
+   "name": "Slide_Start",
+   "duration": 0.833
+  },
+  {
+   "id": "ual2/Sword_Block",
+   "file": "ual2",
+   "name": "Sword_Block",
+   "duration": 1.233
+  },
+  {
+   "id": "ual2/Sword_Dash",
+   "file": "ual2",
+   "name": "Sword_Dash",
+   "duration": 1.567
+  },
+  {
+   "id": "ual2/Sword_Heavy_Combo",
+   "file": "ual2",
+   "name": "Sword_Heavy_Combo",
+   "duration": 4.333
+  },
+  {
+   "id": "ual2/Sword_Regular_A",
+   "file": "ual2",
+   "name": "Sword_Regular_A",
+   "duration": 0.433
+  },
+  {
+   "id": "ual2/Sword_Regular_A_Rec",
+   "file": "ual2",
+   "name": "Sword_Regular_A_Rec",
+   "duration": 0.967
+  },
+  {
+   "id": "ual2/Sword_Regular_B",
+   "file": "ual2",
+   "name": "Sword_Regular_B",
+   "duration": 0.533
+  },
+  {
+   "id": "ual2/Sword_Regular_B_Rec",
+   "file": "ual2",
+   "name": "Sword_Regular_B_Rec",
+   "duration": 1.033
+  },
+  {
+   "id": "ual2/Sword_Regular_C",
+   "file": "ual2",
+   "name": "Sword_Regular_C",
+   "duration": 2
+  },
+  {
+   "id": "ual2/Sword_Regular_Combo",
+   "file": "ual2",
+   "name": "Sword_Regular_Combo",
+   "duration": 3
+  },
+  {
+   "id": "ual2/TreeChopping_Loop",
+   "file": "ual2",
+   "name": "TreeChopping_Loop",
+   "duration": 0.967
+  },
+  {
+   "id": "ual2/Walk_Carry_Loop",
+   "file": "ual2",
+   "name": "Walk_Carry_Loop",
+   "duration": 2
+  },
+  {
+   "id": "ual2/Yes",
+   "file": "ual2",
+   "name": "Yes",
+   "duration": 2.5
+  },
+  {
+   "id": "ual2/Zombie_Idle_Loop",
+   "file": "ual2",
+   "name": "Zombie_Idle_Loop",
+   "duration": 1.333
+  },
+  {
+   "id": "ual2/Zombie_Scratch",
+   "file": "ual2",
+   "name": "Zombie_Scratch",
+   "duration": 1.8
+  },
+  {
+   "id": "ual2/Zombie_Walk_Fwd_Loop",
+   "file": "ual2",
+   "name": "Zombie_Walk_Fwd_Loop",
+   "duration": 1.333
+  }
+ ]
+}

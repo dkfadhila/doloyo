@@ -1,0 +1,51 @@
+{
+  "name": "motion-doll-mcp",
+  "version": "0.4.0",
+  "description": "MCP stdio server and local WebSocket bridge that lets AI agents (Claude Code, Claude Desktop) pose and animate dolls in Motion Doll Studio",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "3d",
+    "animation",
+    "pose",
+    "keyframe",
+    "mannequin",
+    "agent"
+  ],
+  "license": "MIT",
+  "author": "Tirta",
+  "type": "module",
+  "bin": {
+    "motion-doll-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "guide",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p . && node scripts/copy-guide.mjs",
+    "start": "node dist/index.js",
+    "smoke": "npm run build && node scripts/smoke.mjs",
+    "prepublishOnly": "npm run build && node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.17.5",
+    "ws": "8.18.3",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "22.9.0",
+    "@types/ws": "8.5.12",
+    "typescript": "5.6.3"
+  },
+  "overrides": {
+    "zod": "3.23.8",
+    "zod-to-json-schema": "3.24.1"
+  }
+}

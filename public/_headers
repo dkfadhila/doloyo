@@ -1,0 +1,14 @@
+# Cloudflare Pages and Netlify. Hashed bundles never change; stable-name files are revalidated daily.
+# COOP/COEP are NOT required: nothing in the app uses SharedArrayBuffer (MediaPipe tasks-vision 0.10.8 runs single-threaded WASM).
+/bundle/*
+  Cache-Control: public, max-age=31536000, immutable
+/assets/*
+  Cache-Control: public, max-age=86400
+/examples/*
+  Cache-Control: public, max-age=86400
+/mediapipe/*
+  Cache-Control: public, max-age=86400
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+/
+  Cache-Control: public, max-age=0, must-revalidate

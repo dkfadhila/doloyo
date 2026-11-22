@@ -274,6 +274,6 @@ Pil **Agent** di pojok kanan atas membuka panel koneksi. Titik hijau berarti ter
 
 **Izin** (dropdown Permissions): Read-only (agent hanya melihat scene dan snapshot), Edit (boleh mengubah, undo, redo), Edit + Render (boleh juga membuat file render). Edit dari agent masuk ke riwayat undo yang sama, jadi `Ctrl+Z` membatalkannya. **Activity** menampilkan 100 panggilan agent terakhir (jam, metode, ringkasan, ok/error).
 
-**Memakai app dari situs (https):** alamat bridge tetap `ws://127.0.0.1:7777`. Chrome dan Edge bisa menampilkan prompt *Private Network Access*: izinkan. Safari memblokir koneksi ini; pakai instalasi lokal (`npm start`). Jalankan server dengan origin situs itu: `npx motion-doll-mcp --origin https://alamat.situs`.
+**Memakai app dari situs (https):** alamat bridge tetap `ws://127.0.0.1:7777`. Chrome dan Edge bisa menampilkan prompt *Private Network Access*: izinkan. Safari memblokir koneksi ini; pakai instalasi lokal (`npm start`). Jalankan server dengan origin situs itu: `node <path>/motion-doll-studio/mcp/dist/index.js --allow-hosted` (untuk situs lain: `--origin https://alamat.situs`).
 
 Tanpa agent, semua aksi tetap bisa dicoba dari konsol browser: `window.motionDoll.help()` menampilkan daftar perintah.

@@ -33,7 +33,7 @@ Environment:
   MOTION_DOLL_ORIGINS   Extra allowed origins, comma separated
 
 Always allowed: http://localhost:5173, http://127.0.0.1:5173. The bridge binds to 127.0.0.1 only.
-Register with an agent, e.g.: claude mcp add motion-doll -- npx -y motion-doll-mcp
+Register with an agent, e.g.: claude mcp add motion-doll -- node <path>/mcp/dist/index.js
 `;
 
 interface Cli {

@@ -10,8 +10,7 @@ export const log = (...a: unknown[]) => console.error('[motion-doll]', ...a);
 
 export const DEFAULT_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 /** Official hosted deployments, enabled with --allow-hosted. */
-// TODO: fill when domain is decided
-export const HOSTED_ORIGINS: string[] = [];
+export const HOSTED_ORIGINS: string[] = ['https://doll.tirtavex.tech'];
 export const PAIRING_FILE = join(tmpdir(), 'motion-doll-pairing.txt');
 export const CLOSE_BAD_CODE = 4001;
 export const CLOSE_REPLACED = 4002;

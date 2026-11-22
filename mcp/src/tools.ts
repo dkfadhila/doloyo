@@ -57,6 +57,30 @@ function readGuide(): string {
   throw new Error('AGENT.md not found (looked in ' + candidates.join(', ') + ')');
 }
 
+// The browser is untrusted here: never take the extension or a path from its reply.
+const EXPORT_EXT: Record<string, string> = { png: 'png', png_seq: 'zip', webm: 'webm', mp4: 'mp4', glb: 'glb', bvh: 'bvh', project: 'mdoll.json' };
+
+function safeStem(raw: unknown, ext: string): string {
+  let s = basename(String(raw ?? '').replace(/\\/g, '/'));
+  if (s.toLowerCase().endsWith('.' + ext)) s = s.slice(0, -(ext.length + 1));
+  s = s.replace(/[<>:"|?*\u0000-\u001f]/g, '_').replace(/^[. ]+|[. ]+$/g, '').slice(0, 120);
+  return s || 'motion-doll';
+}
+
+/** Writes without ever replacing an existing file; returns the path used. */
+function writeNew(dir: string, stem: string, ext: string, bytes: Buffer): string {
+  for (let i = 0; i < 1000; i++) {
+    const path = resolve(dir, `${stem}${i ? `-${i}` : ''}.${ext}`);
+    try {
+      writeFileSync(path, bytes, { flag: 'wx' });
+      return path;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+    }
+  }
+  throw new Error('Too many files with the same name');
+}
+
 function stamp(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
@@ -201,7 +225,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
       object: objectRef,
       pose: z.union([
         z.string(),
-        z.object({ joints: z.record(vec3), hipsPos: vec3.optional() }),
+        z.object({ joints: z.record(z.string(), vec3), hipsPos: vec3.optional() }),
       ]),
       partial: z.boolean().optional(),
     },
@@ -416,7 +440,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
         transparent: z.boolean().optional().describe('Transparent background (png and png_seq only).'),
         objects: z.array(z.string()).optional().describe('glb/bvh only: object ids or names to export (default: all).'),
         outDir: z.string().optional().describe('Output directory. Default: ./renders under the MCP server working directory.'),
-        filename: z.string().optional().describe('File name (no directory). Default: project name plus timestamp.'),
+        filename: z.string().optional().describe('File name (no directory; the extension follows the format; existing files are never replaced). Default: project name plus timestamp.'),
       },
     },
     guard(async (args: { format: string; width?: number; height?: number; fps?: number; transparent?: boolean; objects?: string[]; outDir?: string; filename?: string }) => {
@@ -427,17 +451,9 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
       if (r.bytes.length !== d.bytes) throw new Error(`Received ${r.bytes.length} bytes but the browser reported ${d.bytes}`);
       const dir = resolve(outDir ?? resolve(process.cwd(), 'renders'));
       mkdirSync(dir, { recursive: true });
-      const ext = d.ext;
-      let name: string;
-      if (filename) {
-        name = basename(filename.replace(/\\/g, '/'));
-        if (!name.toLowerCase().endsWith('.' + ext)) name += '.' + ext;
-      } else {
-        const stem = d.filename.slice(0, d.filename.length - ext.length - 1);
-        name = `${stem}_${stamp()}.${ext}`;
-      }
-      const path = resolve(dir, name);
-      writeFileSync(path, r.bytes);
+      const ext = EXPORT_EXT[args.format];
+      const stem = filename ? safeStem(filename, ext) : `${safeStem(d.filename, ext)}_${stamp()}`;
+      const path = writeNew(dir, stem, ext, r.bytes);
       return text(JSON.stringify({ path, bytes: r.bytes.length, format: args.format, width: d.width, height: d.height, fps: d.fps, frames: d.frames }));
     }) as never,
   );

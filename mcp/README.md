@@ -39,7 +39,7 @@ Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
-Once published to npm (not yet): `npx motion-doll-mcp`, e.g. `claude mcp add motion-doll -- npx -y motion-doll-mcp`. Check what would be published with `npm pack --dry-run` inside `mcp/`; `npm publish` runs build and the smoke test first (`prepublishOnly`).
+The package is not on npm: run it from a clone as shown above. Do not install a package of this name from npm.
 
 ## Command line
 
@@ -50,11 +50,11 @@ motion-doll-mcp [--origin <url>]... [--allow-hosted] [--port <n>] [--help] [--ve
 | Flag | Meaning |
 | --- | --- |
 | `--origin <url>` | Allow this browser origin (repeatable, `--origin=<url>` also works). Paths are dropped, so `https://studio.example.com/app` becomes `https://studio.example.com`. |
-| `--allow-hosted` | Also allow the origins in the `HOSTED_ORIGINS` constant (`src/bridge.ts`). It is empty until the official domain is decided, so the flag currently adds nothing. |
+| `--allow-hosted` | Also allow the origins in the `HOSTED_ORIGINS` constant (`src/bridge.ts`). Currently `https://doll.tirtavex.tech`. |
 | `--port <n>` | WebSocket port (same as `MOTION_DOLL_PORT`; the app expects 7777). |
 | `--help`, `--version` | Print usage or the version to stdout and exit. |
 
-Using a hosted copy of the app: start the server with its origin, for example `claude mcp add motion-doll -- npx -y motion-doll-mcp --origin https://studio.example.com`, open the site, and connect with the pairing code. The page keeps using `ws://127.0.0.1:7777` even when it is served over https. Chrome and Edge may show a Private Network Access prompt (allow it); Safari blocks this connection, so use the local install there.
+Using a hosted copy of the app: start the server with its origin, for example `claude mcp add motion-doll -- node <path>/motion-doll-studio/mcp/dist/index.js --allow-hosted`, open the site, and connect with the pairing code. The page keeps using `ws://127.0.0.1:7777` even when it is served over https. Chrome and Edge may show a Private Network Access prompt (allow it); Safari blocks this connection, so use the local install there.
 
 ## Pairing flow
 

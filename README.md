@@ -9,21 +9,21 @@ Pose a 3D mannequin, keyframe it, and export the result. It runs in your browser
 **Install from GitHub (works fully offline).**
 
 ```
-git clone https://github.com/<owner>/motion-doll-studio
+git clone https://github.com/dkfadhila/motion-doll-studio
 cd motion-doll-studio
 npm run setup        # npm install, build the MCP server, download the pose model
 npm start            # http://localhost:5173
 ```
 
-**Use it on the web (static site, nothing to install for the app).** Open the hosted site; rendering happens on your own GPU and projects live in your browser's IndexedDB. To let an agent drive it, run one command on your machine:
+**Use it on the web (static site, nothing to install for the app).** Open https://doll.tirtavex.tech; rendering happens on your own GPU and projects live in your browser's IndexedDB. To let an agent drive it, build the bridge from a clone (`npm run mcp:install && npm run mcp:build`) and register this command in your agent:
 
 ```
-npx motion-doll-mcp --allow-hosted
+node <path>/motion-doll-studio/mcp/dist/index.js --allow-hosted
 ```
 
 The hosted page then connects to `ws://127.0.0.1:7777` on your computer. Chrome and Edge may show a Private Network Access prompt; Safari blocks the connection, so use the local install there. See [Agent setup](#agent-setup).
 
-The hosted URL and the npm package are not published yet; until then use the GitHub install.
+The MCP package is not on npm yet, which is why the bridge currently needs a clone.
 
 ## Quick start
 
@@ -60,8 +60,6 @@ Claude Code:
 
 ```
 claude mcp add motion-doll -- node /path/to/motion-doll-studio/mcp/dist/index.js
-# or, once the package is published:
-claude mcp add motion-doll -- npx -y motion-doll-mcp
 ```
 
 Claude Desktop (`claude_desktop_config.json`):

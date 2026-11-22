@@ -348,6 +348,10 @@ try {
   assert.deepEqual(calls.at(-1).params, { format: 'glb', fps: 24, objects: ['Mannequin 1'] });
   const bvh = await client.callTool({ name: 'render_export', arguments: { format: 'bvh', outDir } }).catch((e) => ({ isError: true, content: [{ type: 'text', text: String(e.message) }] }));
   assert.notEqual(bvh.isError, true); // valid format (the fake browser answers with its canned file)
+  const safe = json(await client.callTool({ name: 'render_export', arguments: { format: 'glb', outDir, filename: '../../anim' } }));
+  assert.equal(safe.path, join(outDir, 'anim-1.glb'), 'stays in outDir and never overwrites');
+  ok('render_export: no traversal, no overwrite');
+
   const badFormat = await client.callTool({ name: 'render_export', arguments: { format: 'fbx' } }).catch((e) => ({ isError: true, content: [{ type: 'text', text: String(e.message) }] }));
   assert.equal(badFormat.isError, true);
   ok('render_export glb: objects forwarded, .glb written; bvh accepted, unknown format rejected');

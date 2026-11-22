@@ -97,7 +97,7 @@ function AgentPopover() {
 
       {isHttpsPage() && (
         <div className="note small">
-          This page is served over https and talks to your local bridge at <span className="mono">ws://127.0.0.1:{BRIDGE_PORT}</span>. Chrome and Edge may show a Private Network Access prompt: allow it for this site. Safari blocks this connection; use the local install (<span className="mono">npm start</span>) instead. Start the bridge with <span className="mono">npx motion-doll-mcp --origin {location.origin}</span> if this site is not on its allowlist.
+          This page is served over https and talks to your local bridge at <span className="mono">ws://127.0.0.1:{BRIDGE_PORT}</span>. Chrome and Edge may show a Private Network Access prompt: allow it for this site. Safari blocks this connection; use the local install (<span className="mono">npm start</span>) instead. Start the bridge with <span className="mono">{'node <path>/motion-doll-studio/mcp/dist/index.js --origin ' + location.origin}</span> if this site is not on its allowlist.
         </div>
       )}
 
@@ -106,9 +106,6 @@ function AgentPopover() {
         Build once: <code className="mono">npm run mcp:install</code> then <code className="mono">npm run mcp:build</code>. Register the server in your agent client:
       </div>
       <pre className="code mono">{SETUP}</pre>
-      <div className="muted small">
-        No local checkout? <span className="mono">claude mcp add motion-doll -- npx -y motion-doll-mcp</span>
-      </div>
       <div className="muted small">
         The server prints a pairing code on stderr and writes it to <span className="mono">motion-doll-pairing.txt</span> in the system temp folder (or ask the agent for <span className="mono">bridge_status</span>). Bridge port {BRIDGE_PORT}.
       </div>

@@ -19,3 +19,5 @@ Thumbs.db
 # renders written by the MCP server (default ./renders)
 renders
 mcp/renders
+
+.vercel

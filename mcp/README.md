@@ -50,7 +50,7 @@ motion-doll-mcp [--origin <url>]... [--allow-hosted] [--port <n>] [--help] [--ve
 | Flag | Meaning |
 | --- | --- |
 | `--origin <url>` | Allow this browser origin (repeatable, `--origin=<url>` also works). Paths are dropped, so `https://studio.example.com/app` becomes `https://studio.example.com`. |
-| `--allow-hosted` | Also allow the origins in the `HOSTED_ORIGINS` constant (`src/bridge.ts`). Currently `https://doll.tirtavex.tech`. |
+| `--allow-hosted` | Also allow the origins in the `HOSTED_ORIGINS` constant (`src/bridge.ts`). Currently `https://doll.tirtavex.tech` and `https://motion-doll-studio.vercel.app`. |
 | `--port <n>` | WebSocket port (same as `MOTION_DOLL_PORT`; the app expects 7777). |
 | `--help`, `--version` | Print usage or the version to stdout and exit. |
 

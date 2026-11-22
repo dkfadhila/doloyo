@@ -15,7 +15,7 @@ npm run setup        # npm install, build the MCP server, download the pose mode
 npm start            # http://localhost:5173
 ```
 
-**Use it on the web (static site, nothing to install for the app).** Open https://doll.tirtavex.tech; rendering happens on your own GPU and projects live in your browser's IndexedDB. To let an agent drive it, build the bridge from a clone (`npm run mcp:install && npm run mcp:build`) and register this command in your agent:
+**Use it on the web (static site, nothing to install for the app).** Open https://motion-doll-studio.vercel.app; rendering happens on your own GPU and projects live in your browser's IndexedDB. To let an agent drive it, build the bridge from a clone (`npm run mcp:install && npm run mcp:build`) and register this command in your agent:
 
 ```
 node <path>/motion-doll-studio/mcp/dist/index.js --allow-hosted

@@ -1,7 +1,7 @@
 import { getCharacter, registerCustomCharacter, unregisterCustomCharacter, type CharacterDef } from './registry';
 
 /** Imported characters live only in this browser (IndexedDB). Project files reference them by id. */
-const DB = 'motion-doll-characters';
+const DB = 'doloyo-characters'; // data of the former name (motion-doll-characters) is copied here on first load, see legacy.ts
 const STORE = 'files';
 
 interface Row {

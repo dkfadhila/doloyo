@@ -14,7 +14,7 @@ Node 18 or newer. Use npm (a lockfile is committed for the app and for `mcp/`).
 ## Before you open a pull request
 
 ```
-npm test                       # vitest: core, retargeting, export, examples, tour
+npm test                       # vitest: core, retargeting, export, examples, tour, AGENTS.md tool calls
 npm run build                  # tsc --noEmit + vite build
 npm run smoke --prefix mcp     # MCP bridge smoke test
 ```
@@ -23,7 +23,7 @@ CI runs the same three.
 
 ## Conventions
 
-- All project changes go through `dispatch(cmd)` in `src/store.ts` as JSON commands with an inverse (undo). New commands: add them to `src/core/commands.ts`, document them in `docs/AGENT.md` and `COMMAND_HELP`, add an MCP tool in `mcp/src/tools.ts`, and cover them in `src/core/*.test.ts` and `mcp/scripts/smoke.mjs`.
+- All project changes go through `dispatch(cmd)` in `src/store.ts` as JSON commands with an inverse (undo). New commands: add them to `src/core/commands.ts`, document them in `docs/AGENT.md` and `COMMAND_HELP`, add an MCP tool in `mcp/src/tools.ts`, and cover them in `src/core/*.test.ts` and `mcp/scripts/smoke.mjs`. Tool calls shown in `AGENTS.md` (blocks tagged `json tool-call`) are checked against the registered tools by `scripts/agents-md.test.ts`.
 - `src/core` stays pure TypeScript (no React, no DOM, no three.js scene).
 - UI: dark tokens from `src/styles.css`, Inter and JetBrains Mono, compact controls, no gradients, glow or emoji. It must work at 620 px wide.
 - Everything stays local: no analytics, no uploads.

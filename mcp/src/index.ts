@@ -16,24 +16,25 @@ const VERSION: string = (() => {
   }
 })();
 
-const USAGE = `motion-doll-mcp ${VERSION}
-MCP stdio server + local WebSocket bridge for Motion Doll Studio.
+const USAGE = `doloyo-mcp ${VERSION}
+MCP stdio server + local WebSocket bridge for Doloyo.
 
-Usage: motion-doll-mcp [options]
+Usage: doloyo-mcp [options]
 
 Options:
   --origin <url>     Allow this browser origin to connect (repeatable), e.g. --origin https://studio.example.com
   --allow-hosted     Also allow the official hosted origins built into this version
-  --port <n>         WebSocket port (default 7777, or MOTION_DOLL_PORT; the app expects 7777)
+  --port <n>         WebSocket port (default 7777, or DOLOYO_PORT; the app expects 7777)
   -h, --help         Show this help
   -v, --version      Show the version
 
 Environment:
-  MOTION_DOLL_PORT      WebSocket port
-  MOTION_DOLL_ORIGINS   Extra allowed origins, comma separated
+  DOLOYO_PORT           WebSocket port (MOTION_DOLL_PORT still works)
+  DOLOYO_ORIGINS        Extra allowed origins, comma separated (MOTION_DOLL_ORIGINS still works)
 
 Always allowed: http://localhost:5173, http://127.0.0.1:5173. The bridge binds to 127.0.0.1 only.
-Register with an agent, e.g.: claude mcp add motion-doll -- node <path>/mcp/dist/index.js
+Register with an agent, e.g.: claude mcp add doloyo -- node <path>/mcp/dist/index.js
+The pairing code is written to doloyo-pairing.txt (and motion-doll-pairing.txt) in the system temp folder.
 `;
 
 interface Cli {
@@ -90,16 +91,17 @@ ${USAGE}`);
 
 async function main() {
   const cli = parseArgs(process.argv.slice(2));
-  const port = Number(cli.port ?? process.env.MOTION_DOLL_PORT ?? 7777);
+  const portText = cli.port ?? process.env.DOLOYO_PORT ?? process.env.MOTION_DOLL_PORT ?? '7777';
+  const port = Number(portText);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    log(`Invalid port: ${cli.port ?? process.env.MOTION_DOLL_PORT}`);
+    log(`Invalid port: ${portText}`);
     process.exit(1);
   }
-  const extra = (process.env.MOTION_DOLL_ORIGINS ?? '').split(',');
+  const extra = [...(process.env.DOLOYO_ORIGINS ?? '').split(','), ...(process.env.MOTION_DOLL_ORIGINS ?? '').split(',')];
   const bridge = new Bridge({ port, origins: [...DEFAULT_ORIGINS, ...extra, ...cli.origins, ...(cli.hosted ? HOSTED_ORIGINS : [])] });
   await bridge.start();
 
-  const server = new McpServer({ name: 'motion-doll', version: VERSION });
+  const server = new McpServer({ name: 'doloyo', version: VERSION });
   registerTools(server, bridge);
   await server.connect(new StdioServerTransport());
   log('MCP stdio server ready');

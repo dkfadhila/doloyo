@@ -1,7 +1,7 @@
 import { profileOf } from '../core/body';
 import { zipSync } from 'fflate';
 import { ArrayBufferTarget as Mp4Target, Muxer as Mp4Muxer } from 'mp4-muxer';
-import { PerspectiveCamera, Vector3, WebGLRenderer, type Light, type Object3D } from 'three';
+import { Color, PerspectiveCamera, Vector3, WebGLRenderer, type Light, type Object3D } from 'three';
 import { ArrayBufferTarget as WebmTarget, Muxer as WebmMuxer } from 'webm-muxer';
 import { getCharacter } from '../characters/registry';
 import { charactersReady } from '../characters/loader';
@@ -10,7 +10,9 @@ import type { Project, SceneObject } from '../core/types';
 import { useStore } from '../store';
 import { applyAll, getRenderContext, live } from '../three/shared';
 import { createSkinned } from '../three/skinned';
+import { getCachedImage, loadProjectImages } from '../images/store';
 import { useUi } from '../ui/uiStore';
+import { BG_COLOR, composeFrame, renderBackdrops } from './backdrop';
 import { buildBvh, buildGlbScene, writeGlb, type SkinRig } from './glb';
 import { checkSize, evenSize, extFor, frameCount, frameTime, isModelFormat, mimeFor, safeName, videoBitrate, type ExportFormat } from './plan';
 
@@ -96,6 +98,8 @@ function createFrameSource(width: number, height: number, transparent: boolean):
   cam.updateProjectionMatrix();
   cam.updateMatrixWorld();
 
+  // Put the views into the current state first (some flags, like an image plane's "in render", are derived there).
+  applyAll();
   // Hide grid, gizmo, onion ghosts and anything flagged noSnap for the whole export.
   const hidden: Object3D[] = [];
   scene.traverse((o) => {
@@ -105,7 +109,15 @@ function createFrameSource(width: number, height: number, transparent: boolean):
     }
   });
   const prevBg = scene.background;
-  if (transparent) scene.background = null;
+  // reference images behind the scene: render the 3D part on a transparent clear and compose with the 2D canvas
+  const backdrops = renderBackdrops(project, true);
+  const out = backdrops.length ? document.createElement('canvas') : null;
+  if (out) {
+    out.width = width;
+    out.height = height;
+  }
+  if (transparent || out) scene.background = null;
+  else if (!scene.background) scene.background = new Color(BG_COLOR); // the editor shows a reference image through a transparent scene
   resetShadowMaps(scene);
 
   return {
@@ -126,7 +138,7 @@ function createFrameSource(width: number, height: number, transparent: boolean):
       live.override = { project: proj, selected: null, joint: null };
       applyAll(live.override);
       gl.render(scene, cam);
-      return canvas;
+      return out ? composeFrame(canvas, out, backdrops, transparent) : canvas;
     },
     dispose: () => {
       live.override = null;
@@ -242,9 +254,22 @@ async function loadSkin(o: SceneObject): Promise<SkinRig | null> {
   }
 }
 
+/** Texture source for image planes in the GLB: the decoded picture on a canvas (the exporter writes PNG). */
+function loadImage(imageId: string): Promise<CanvasImageSource | null> {
+  const img = getCachedImage(imageId);
+  if (!img) return Promise.resolve(null);
+  const c = document.createElement('canvas');
+  const scale = Math.min(1, 2048 / Math.max(img.naturalWidth, img.naturalHeight, 1));
+  c.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  c.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+  return Promise.resolve(c);
+}
+
 function pickObjects(project: Project, refs: string[] | undefined): SceneObject[] {
   const all = project.objects.filter((o) => o.kind !== 'camera');
-  if (!refs || !refs.length) return all;
+  // image planes that are not in render stay out of a default export (name them in the objects list to export them anyway)
+  if (!refs || !refs.length) return all.filter((o) => o.kind !== 'image' || o.image?.inRender !== false);
   const out = refs.map((r) => all.find((o) => o.id === r) ?? all.find((o) => o.name === r) ?? null);
   const bad = refs.filter((_, i) => !out[i]);
   if (bad.length) throw new Error('Object not found (or not exportable): ' + bad.join(', '));
@@ -263,7 +288,8 @@ export async function exportModel(o: ExportOptions): Promise<{ bytes: Uint8Array
   await charactersReady();
   const camera = project.objects.find((x) => x.kind === 'camera') ?? null;
   const aspect = o.width > 0 && o.height > 0 ? o.width / o.height : useUi.getState().renderAspect;
-  const b = await buildGlbScene({ project, objects: objs, camera, fps: o.fps, aspect, loadSkin });
+  await loadProjectImages(project);
+  const b = await buildGlbScene({ project, objects: objs, camera, fps: o.fps, aspect, loadSkin, loadImage });
   try {
     check(o.signal);
     return { bytes: await writeGlb(b), frames: b.frames };
@@ -301,6 +327,7 @@ export async function exportRender(o: ExportOptions): Promise<ExportResult> {
   }
 
   checkSize(o.width, o.height);
+  await loadProjectImages(project);
   if (!Number.isInteger(o.fps) || o.fps < 1 || o.fps > 240) throw new Error('fps must be an integer 1..240');
   if (o.transparent && o.format !== 'png' && o.format !== 'png_seq') throw new Error('Transparent background is only available for PNG and PNG sequence');
   const video = o.format === 'webm' || o.format === 'mp4';

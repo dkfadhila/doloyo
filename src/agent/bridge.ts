@@ -2,6 +2,8 @@ import { bodyHeight, genderOf } from '../core/body';
 import { applyClip } from '../anim/apply';
 import { isLoop, listClips, searchClips } from '../anim/library';
 import { charactersReady } from '../characters/loader';
+import { resolveImageCommands } from '../images/commands';
+import { addImageBlob, loadProjectImages } from '../images/store';
 import { runMocapFromBlob } from '../mocap/job';
 import type { Command } from '../core/commands';
 import { POSE_NAMES } from '../core/poses';
@@ -11,7 +13,7 @@ import { runExport } from '../render/run';
 import { EXPORT_FORMATS, type ExportFormat } from '../render/plan';
 import { useStore } from '../store';
 import { takeSnapshot } from '../three/shared';
-import { AUTO_KEY, CODE_KEY, loadCode, useAgent, type LogEntry } from './agentStore';
+import { AUTO_KEY, CODE_KEY, loadCode, readSession, removeSession, useAgent, type LogEntry } from './agentStore';
 import { checkPermission, findInternalCommand } from './permissions';
 
 export const BRIDGE_PORT = 7777;
@@ -45,6 +47,7 @@ function summarizeObject(o: SceneObject) {
     kind: o.kind,
     ...(o.kind === 'mannequin' ? { character: o.character, material: o.material, body: o.body ?? { preset: 'dewasa' }, height: r3(bodyHeight(o.body, genderOf(o))) } : {}),
     position: rv(o.position),
+    ...(o.kind === 'image' && o.image ? { image: { imageId: o.image.imageId, aspect: r3(o.image.aspect), opacity: o.image.opacity, doubleSided: o.image.doubleSided, locked: o.image.locked, inRender: o.image.inRender, billboard: o.image.billboard } } : {}),
     ...(o.kind === 'camera' ? { target: rv(o.target), fov: r3(o.fov) } : { rotation: rv(o.rotation), scale: rv(o.scale) }),
   };
   if (o.kind === 'mannequin') {
@@ -69,6 +72,7 @@ export function sceneGet() {
     time: r3(p.time),
     frame: Math.round(p.time * p.fps),
     objects: p.objects.map(summarizeObject),
+    backgrounds: { viewport: p.background ?? null, camera: p.cameraBackground ?? null },
     joints: JOINTS,
     poses: { presets: POSE_NAMES, custom: Object.keys(p.customPoses) },
     selected: s.selection.object,
@@ -77,11 +81,13 @@ export function sceneGet() {
   };
 }
 
-function dispatchCommand(params: Record<string, unknown> | undefined) {
-  const cmd = params as unknown as Command | undefined;
-  if (!cmd || typeof cmd !== 'object' || typeof cmd.type !== 'string') throw new Error('dispatch needs a command object with a "type"');
-  const internal = findInternalCommand(cmd);
+async function dispatchCommand(params: Record<string, unknown> | undefined) {
+  const raw = params as unknown as Command | undefined;
+  if (!raw || typeof raw !== 'object' || typeof raw.type !== 'string') throw new Error('dispatch needs a command object with a "type"');
+  const internal = findInternalCommand(raw);
   if (internal) throw new Error(`"${internal}" is an internal command and cannot be dispatched`);
+  // image_add may carry a dataUrl (the MCP server streams a local file): store it in this browser first
+  const cmd = await resolveImageCommands((await attachUploads(raw as never)) as never);
   const st = useStore.getState();
   const before = new Set(st.project.objects.map((o) => o.id));
   const res = st.dispatch(cmd, { noAutoKey: true, source: 'agent' });
@@ -114,6 +120,7 @@ function num(v: unknown, def: number, name: string, min = 16, max = 7680): numbe
 
 async function snapshot(params: Record<string, unknown> | undefined) {
   await charactersReady(); // skinned characters load asynchronously
+  await loadProjectImages(useStore.getState().project);
   const width = num(params?.width, 960, 'width');
   const height = num(params?.height, 540, 'height');
   const url = takeSnapshot({ width, height, transparent: false });
@@ -195,6 +202,25 @@ function fromBase64(s: string): Uint8Array {
   return out;
 }
 
+/** image_add with uploadId: the MCP server streamed a local picture file in chunks (same transfer as video uploads). */
+async function attachUploads(cmd: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (cmd.type === 'batch' && Array.isArray(cmd.commands)) {
+    const commands: unknown[] = [];
+    for (const c of cmd.commands as Record<string, unknown>[]) commands.push(await attachUploads(c));
+    return { ...cmd, commands };
+  }
+  if (cmd.type !== 'image_add' || cmd.uploadId === undefined) return cmd;
+  const id = String(cmd.uploadId);
+  const u = uploads.get(id);
+  if (!u) throw new Error('Unknown uploadId: upload the image first');
+  if (u.got !== u.total) throw new Error(`Upload incomplete (${u.got}/${u.total} chunks)`);
+  uploads.delete(id);
+  const { uploadId: _u, mime, filename, ...rest } = cmd;
+  const blob = new Blob(u.parts as BlobPart[], { type: typeof mime === 'string' ? mime : '' });
+  const meta = await addImageBlob(blob, typeof filename === 'string' ? filename : 'image');
+  return { ...rest, imageId: meta.id, aspect: meta.width / meta.height, ...(rest.name === undefined && rest.mode !== 'plane' ? { name: meta.name } : {}) };
+}
+
 function mocapUpload(params: Record<string, unknown> | undefined) {
   const id = opt<string>(params?.uploadId, 'string', 'uploadId');
   const seq = opt<number>(params?.seq, 'number', 'seq');
@@ -245,12 +271,12 @@ function summarizeCall(method: string, params: Record<string, unknown> | undefin
   if (method === 'dispatch') {
     const t = String(params?.type ?? '?');
     if (t === 'batch' && Array.isArray(params?.commands)) return `batch (${params.commands.length})`;
-    const extra = params?.joint ?? params?.object ?? params?.kind ?? params?.name ?? '';
+    const extra = params?.joint ?? params?.object ?? params?.kind ?? params?.mode ?? params?.background ?? params?.name ?? '';
     return extra ? `${t} ${String(extra)}` : t;
   }
   if (method === 'anim_apply') return String(params?.clip ?? '');
   if (method === 'anim_list') return String(params?.query ?? '');
-  if (method === 'mocap_upload') return `chunk ${Number(params?.seq ?? 0) + 1}/${params?.total ?? '?'}`;
+  if (method === 'mocap_upload') return `upload chunk ${Number(params?.seq ?? 0) + 1}/${params?.total ?? '?'}`;
   if (method === 'mocap_from_video') return 'analyze video';
   if (method === 'render_export') return `${String(params?.format ?? '?')} ${params?.width ?? ''}x${params?.height ?? ''}`.trim();
   if (method === 'viewport_snapshot') return `${params?.width ?? 960}x${params?.height ?? 540}`;
@@ -290,7 +316,7 @@ async function handleCall(msg: CallMsg) {
         data = sceneGet();
         break;
       case 'dispatch':
-        data = dispatchCommand(msg.params);
+        data = await dispatchCommand(msg.params);
         break;
       case 'undo':
       case 'redo':
@@ -408,7 +434,7 @@ function disconnectSocket() {
 export function disconnectBridge() {
   wanted = false;
   try {
-    sessionStorage.removeItem(AUTO_KEY);
+    removeSession(AUTO_KEY);
   } catch {
     /* ignore */
   }
@@ -419,7 +445,7 @@ export function disconnectBridge() {
 /** Reconnect after a page reload if the user was connected in this tab session. */
 export function autoConnectBridge() {
   try {
-    if (sessionStorage.getItem(AUTO_KEY) === '1' && loadCode()) connectBridge(loadCode());
+    if (readSession(AUTO_KEY) === '1' && loadCode()) connectBridge(loadCode());
   } catch {
     /* ignore */
   }

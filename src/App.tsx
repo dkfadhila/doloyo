@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Backdrop } from './three/Backdrop';
 import { Scene } from './three/Scene';
 import { ExportDialog } from './ui/ExportDialog';
 import { GuideDrawer } from './ui/GuideDrawer';
@@ -6,6 +7,7 @@ import { AboutModal, ShortcutsModal } from './ui/HelpModals';
 import { Tour } from './ui/Tour';
 import { usePlayback, useShortcuts } from './ui/hooks';
 import { Inspector } from './ui/Inspector';
+import { ImageModePopover, isImageFile, SaveDialog } from './ui/ImageUi';
 import { LeftDock } from './ui/LeftDock';
 import { ImportDialog } from './ui/ImportDialog';
 import { CopyDance } from './ui/CopyDance';
@@ -89,14 +91,29 @@ export default function App() {
       <TopBar onGuide={() => toggleGuide()} />
       <LeftDock />
       <div className={'scrim' + (leftOpen || rightOpen ? ' on' : '')} onClick={() => { useUi.getState().setLeftOpen(false); useUi.getState().setRightOpen(false); }} />
-      <main className="viewport" data-tour="viewport">
+      <main
+        className="viewport"
+        data-tour="viewport"
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes('Files')) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          const f = [...e.dataTransfer.files].find(isImageFile);
+          if (!f) return;
+          e.preventDefault();
+          useUi.getState().setPendingImage(f);
+        }}
+      >
+        <Backdrop />
         <Scene />
         <SafeFrame />
         <ModeBar />
+        <ImageModePopover />
       </main>
       <Inspector open={rightOpen} />
       <Timeline />
       <ExportDialog />
+      <SaveDialog />
       <ImportDialog />
       <CopyDance />
       <ShortcutsModal />

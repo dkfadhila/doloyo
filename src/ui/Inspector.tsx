@@ -9,6 +9,7 @@ import { BODY_PRESETS, LIMBS, type BodyPreset, type Limb, type MaterialMode, typ
 import { selectedObject, useStore } from '../store';
 import { Icon } from './Icons';
 import { setCameraFromView } from './keyActions';
+import { BackdropInspector, ImagePlaneSection, useBackdropSelection } from './ImageUi';
 import { NumberField } from './NumberField';
 
 const AXES = ['X', 'Y', 'Z'] as const;
@@ -320,6 +321,16 @@ export function Inspector({ open }: { open?: boolean }) {
   const joint = useStore((s) => s.selection.joint);
   const autoKey = useStore((s) => s.autoKey);
   const dispatch = useStore((s) => s.dispatch);
+  const bgSlot = useBackdropSelection();
+
+  if (!obj && bgSlot) {
+    return (
+      <aside className={'panel inspector' + (open ? ' open' : '')} data-tour="inspector">
+        <div className="panel-head"><span className="panel-title">Inspector</span></div>
+        <div className="panel-body"><BackdropInspector slot={bgSlot} /></div>
+      </aside>
+    );
+  }
 
   if (!obj) {
     return (
@@ -380,6 +391,7 @@ export function Inspector({ open }: { open?: boolean }) {
           {!isCam && <VecRow title="Scale" value={obj.scale} step={0.01} decimals={3} onCommit={(v, group) => dispatch({ type: 'object_transform', object: obj.id, scale: v }, { group })} />}
         </section>
 
+        {obj.kind === 'image' && <ImagePlaneSection obj={obj} />}
         {isDoll && <BodySection obj={obj} />}
         {isCam && <CameraSection obj={obj} />}
         {isDoll && <IkSection obj={obj} />}

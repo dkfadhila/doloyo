@@ -18,12 +18,13 @@ jobs:
             package-lock.json
             mcp/package-lock.json
       - run: npm ci
+      # the MCP dependencies are needed by scripts/agents-md.test.ts (it checks the tool calls in AGENTS.md)
+      - run: npm ci --prefix mcp
       - run: npm test
       # SKIP_MODELS: CI does not need the 9 MB pose model; the app falls back to the CDN at runtime anyway
       - run: npm run build
         env:
           SKIP_MODELS: '1'
-      - run: npm ci --prefix mcp
       - run: npm run mcp:build
       - run: npm run smoke --prefix mcp
       - run: npm pack --dry-run --prefix mcp

@@ -1,8 +1,10 @@
 import { normalizeProject } from './core/commands';
+import { embedProjectImages, projectImageIds, restoreEmbeddedImages } from './images/store';
+import { readLegacyAutosave } from './legacy';
 import type { Project } from './core/types';
 import { useStore } from './store';
 
-const DB = 'motion-doll';
+const DB = 'doloyo';
 const STORE = 'kv';
 const KEY = 'project';
 
@@ -36,7 +38,7 @@ async function idbSet(key: string, value: unknown): Promise<void> {
 
 export async function loadAutosave(): Promise<Project | null> {
   try {
-    const raw = await idbGet<unknown>(KEY);
+    const raw = (await idbGet<unknown>(KEY)) ?? (await readLegacyAutosave());
     return raw ? normalizeProject(raw) : null;
   } catch (e) {
     console.warn('[persist] load failed', e);
@@ -74,11 +76,25 @@ export function downloadDataUrl(url: string, filename: string) {
   a.remove();
 }
 
-export function exportProject(p: Project): void {
+/** Project file. The extension stays .mdoll.json (files saved by older versions keep opening). */
+export async function exportProject(p: Project, embedImages = false): Promise<{ embedded: number; skipped: number }> {
   const name = (p.name || 'project').replace(/[^\w\-]+/g, '_');
-  download(new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' }), `${name}.mdoll.json`);
+  let out: Project & { embeddedImages?: Record<string, string> } = p;
+  let embedded = 0;
+  let skipped = 0;
+  if (embedImages && projectImageIds(p).length) {
+    const r = await embedProjectImages(p);
+    embedded = Object.keys(r.images).length;
+    skipped = r.skipped.length;
+    if (embedded) out = { ...p, embeddedImages: r.images };
+  }
+  download(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }), `${name}.mdoll.json`);
+  return { embedded, skipped };
 }
 
+/** Open a project file. Images embedded in it are stored in this browser first (an id that is already stored is kept). */
 export async function importProjectFile(file: File): Promise<Project> {
-  return normalizeProject(JSON.parse(await file.text()));
+  const raw = JSON.parse(await file.text());
+  await restoreEmbeddedImages(raw);
+  return normalizeProject(raw);
 }

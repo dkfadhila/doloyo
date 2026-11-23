@@ -27,6 +27,6 @@ describe('render plan', () => {
   it('names and extensions', () => {
     expect(extFor('png_seq')).toBe('zip');
     expect(safeName('My clip / v2')).toBe('My_clip_v2');
-    expect(safeName('')).toBe('motion-doll');
+    expect(safeName('')).toBe('doloyo');
   });
 });

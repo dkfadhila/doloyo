@@ -1,108 +1,178 @@
-![Motion Doll Studio banner](docs/img/banner.webp)
+<p align="center">
+  <img src="docs/img/banner.webp" alt="Doloyo banner" width="100%">
+</p>
 
-# Motion Doll Studio
+# Doloyo
 
-Pose a 3D mannequin, keyframe it, and export the result. It runs in your browser, and AI agents can drive it through a local MCP server.
+**Your floppy little motion studio.** Pose a 3D mannequin, keyframe it, copy a dance from a video and export the result. It runs in your browser, and AI agents can drive it through a local MCP server.
 
-![Motion Doll Studio editor](docs/img/hero.png)
+English | [Bahasa Indonesia](README.id.md)
 
-## Two ways to use it
+[![CI](https://github.com/dkfadhila/doloyo/actions/workflows/ci.yml/badge.svg)](https://github.com/dkfadhila/doloyo/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Install from GitHub (works fully offline).**
+<p align="center">
+  <img src="docs/img/editor.webp" alt="The Doloyo editor with the Dance crew example and the timeline" width="100%">
+</p>
+
+## Try it
+
+- **In the browser:** https://doloyo.vercel.app. Nothing to install; rendering uses your own GPU and projects stay in your browser.
+- **Run locally** (works fully offline):
 
 ```
-git clone https://github.com/dkfadhila/motion-doll-studio
-cd motion-doll-studio
+git clone https://github.com/dkfadhila/doloyo
+cd doloyo
 npm run setup        # npm install, build the MCP server, download the pose model
 npm start            # http://localhost:5173
 ```
 
-**Use it on the web (static site, nothing to install for the app).** Open https://motion-doll-studio.vercel.app; rendering happens on your own GPU and projects live in your browser's IndexedDB. To let an agent drive it, build the bridge from a clone (`npm run mcp:install && npm run mcp:build`) and register this command in your agent:
-
-```
-node <path>/motion-doll-studio/mcp/dist/index.js --allow-hosted
-```
-
-The hosted page then connects to `ws://127.0.0.1:7777` on your computer. Chrome and Edge may show a Private Network Access prompt; Safari blocks the connection, so use the local install there. See [Agent setup](#agent-setup).
-
-The MCP package is not on npm yet, which is why the bridge currently needs a clone.
-
-## Quick start
-
-1. Click a joint to select it, drag the ring to rotate (R), or type degrees in the Inspector.
-2. Move the playhead, pose again, press K to set a key. Space plays.
-3. Open Help > Examples for ready projects, Help > Tour for a 5-step walkthrough.
-4. Export from the top bar: PNG, PNG sequence, WebM, MP4, GLB or BVH.
+First steps: click a joint, drag the ring to rotate it (R), move the playhead, pose again, press K to set a key, Space plays. Help > Examples loads ready projects and Help > Tour walks through the app.
 
 ## Features
 
-**Posing and animation**
-- Procedural mannequin with a 17-joint rig and joint limits, plus cube, sphere and cylinder; many objects per scene, mixed-gender presets for duo, trio, group of 5 and a family (2 adults, child, baby).
-- FK posing with a gizmo, two-bone IK on wrists and ankles, foot pins, mirror, pose library, onion skin.
-- Timeline with per-joint keys, per-key easing (named or bezier), curve editor, marquee and multi-key edit, copy and paste, loop, fps and duration.
-- Undo and redo for everything, including agent edits (every change is an invertible command).
+### Posing and keyframes
 
-**Characters and motion sources**
-- Body sizes: baby, child, teenager and adult (male and female) with a height slider; proportions, IK, foot pins and exports follow the body, and baby poses (sitting, crawling, standing and holding on) keep the body on the floor.
-- Quaternius mannequins and superheroes (CC0), your own `.glb` or `.vrm` with bone mapping, retargeted from the one 17-joint pose.
-- Animation library: 86 CC0 clips, applied as keys in one undo step (target, speed, loops, mirror, in place).
-- Copy Dance: video to keys with MediaPipe Pose Landmarker, up to 4 people, smoothing and foot lock. Runs locally.
+*The editor (screenshot at the top): outliner on the left, the viewport with a rotate gizmo on the selected doll, the inspector on the right and the keyframe timeline below. Every change is an undoable command, whether it came from you or from an agent.*
 
-**Camera and export**
-- Animated render camera with look-through and safe frame.
+- Procedural 17-joint mannequin with joint limits, plus cube, sphere and cylinder; many objects per scene.
+- FK posing with a gizmo, mirror, pose library, onion skin, per-joint keys with named or bezier easing, marquee and multi-key edit, loop, fps and duration.
+- Scene presets for duo, trio, group of 5 and a family (2 adults, child, baby), mixed gender by default.
+
+### Characters and body sizes
+
+<img src="docs/img/characters.webp" alt="Eight mannequins side by side: baby, child, teenager and adult, male and female" width="100%">
+
+*The eight built-in body variants: Bayi (baby), Anak (child), Remaja (teenager) and Dewasa (adult), each male and female. Children are neutral art mannequins; only proportions change. IK, foot pins and exports follow the body.*
+
+- Body sizes with a height slider and baby poses (sitting, crawling, standing and holding on) that keep the body on the floor.
+- Quaternius mannequins and superheroes (CC0), or your own `.glb` / `.vrm` file with bone mapping. Every character is just another view of the same 17-joint pose.
+
+### Animation library
+
+<img src="docs/img/animation-library.webp" alt="The Animations tab with a dance clip previewing on a mannequin" width="100%">
+
+*The Animations tab holds 86 CC0 clips. Hover or click a clip to preview it on the selected doll; Apply bakes it as keys in one undo step.*
+
+- Target, speed, loops, mirror and in-place options; clips work on every character and body size.
+
+### Copy Dance: video to animation
+
+<img src="docs/img/copy-dance.webp" alt="The Copy Dance dialog with a loaded video and the tracked skeleton drawn over it" width="100%">
+
+*Copy Dance tracks the people in a video with MediaPipe Pose Landmarker and turns them into keys. The blue skeleton is the tracked pose; here the source clip was rendered from Doloyo itself.*
+
+- Up to 4 people, smoothing, foot lock, in-place and mirror options. It runs entirely in your browser; the video is never uploaded.
+
+### IK, foot pins and curves
+
+<img src="docs/img/ik-curves.webp" alt="IK handles on a mannequin and the curve editor with bezier keys" width="100%">
+
+*IK handles on the wrists and ankles (blue) let you drag a limb to a point. Below, the curve editor edits a joint channel with bezier handles.*
+
+- Two-bone IK with pole control, foot pins that stop sliding while the hips move, and Bake pins to turn the result into plain keys.
+
+### Render camera
+
+<img src="docs/img/camera.webp" alt="Looking through the render camera with the safe frame" width="100%">
+
+*Looking through the animated render camera (C). The dimmed border is outside the frame and the dashed rectangle is the 90% safe area for the export aspect.*
+
 - PNG (720p to 4K, transparent), PNG sequence (zip), WebM and MP4 through WebCodecs, GLB and BVH with baked animation for Blender, Unity or Unreal.
 
-**Agents**
-- MCP server with the same commands as the UI (scene, objects, joints, keys, IK, camera, animations, Copy Dance, export), read-only, edit or edit + render permissions, activity log.
+### Reference images
 
-## Agent setup
+<img src="docs/img/reference-images.webp" alt="A nursery picture as viewport background and a poster as an image plane in the scene" width="100%">
 
-The agent talks MCP over stdio to `motion-doll-mcp`, which runs a WebSocket bridge on `127.0.0.1:7777`. The Studio tab connects to that bridge with a 6-digit pairing code.
+*A room picture used as the viewport background and a poster added as an image plane. The selected plane has its own gizmo and options in the inspector.*
 
-Claude Code:
+- Three modes, like Blender: a screen-space **viewport background** (fit, fill or center, opacity), an **image plane** in the 3D scene (move, rotate, scale, keyframes, opacity, double sided, lock, always face camera) and a **camera background** locked to the render camera frame.
+- Add them from File > Add reference image, the outliner + menu, or by dropping a file on the viewport (png, jpg, webp, gif first frame, svg).
+- "Include in render" decides whether a picture shows up in snapshots, exports and GLB (image planes become textured quads). Pictures are stored in your browser; the project file references them by id, and an "Embed images" option on save packs images up to 2 MB into the file.
+
+### Agent control
+
+<img src="docs/img/agent.webp" alt="The Agent panel showing a connected agent and its activity log" width="100%">
+
+*An MCP client connected through the Agent panel (the pairing code is hidden here). The activity log lists what the agent did; the tab shows it live and you can undo it.*
+
+- The MCP server exposes the same commands as the UI (scene, objects, joints, keys, IK, camera, animations, Copy Dance, reference images, export) with read-only, edit or edit + render permissions.
+
+## Agent control (MCP)
+
+The agent talks MCP over stdio to `doloyo-mcp`, which runs a WebSocket bridge on `127.0.0.1:7777`. The Doloyo tab connects to it with a 6-digit pairing code. The npm package is **not published**, so the server runs from a clone (`npm run setup` builds it):
 
 ```
-claude mcp add motion-doll -- node /path/to/motion-doll-studio/mcp/dist/index.js
+claude mcp add doloyo -- node <path>/mcp/dist/index.js
 ```
 
-Claude Desktop (`claude_desktop_config.json`):
+Claude Desktop (`claude_desktop_config.json`) or any stdio MCP client:
 
 ```json
 {
   "mcpServers": {
-    "motion-doll": {
+    "doloyo": {
       "command": "node",
-      "args": ["/path/to/motion-doll-studio/mcp/dist/index.js"]
+      "args": ["<path>/mcp/dist/index.js"]
     }
   }
 }
 ```
 
-Then open the app, click the Agent pill (top right), enter the code the server prints (or ask the agent for `bridge_status`), and choose a permission mode. For a hosted deployment add its origin with `--origin https://your.site`. Details: [mcp/README.md](mcp/README.md), tools and workflow: [docs/AGENT.md](docs/AGENT.md).
+To drive the hosted app at https://doloyo.vercel.app, add `--allow-hosted` to the arguments. The hosted page then connects to `ws://127.0.0.1:7777` on your computer; Chrome and Edge may show a Private Network Access prompt, and Safari blocks the connection (use the local app there).
+
+Then open the app, click the **Agent** pill (top right), enter the code the server prints (or let the agent read it from `bridge_status`) and choose a permission mode.
+
+- [AGENTS.md](AGENTS.md): step-by-step tutorial for agents with worked examples (wave, dance crew with a camera move, a baby commercial scene, Copy Dance, IK).
+- [docs/AGENT.md](docs/AGENT.md): the full tool and command reference.
+- [mcp/README.md](mcp/README.md): server options, security model and troubleshooting.
 
 ## Privacy
 
-Everything runs locally. Projects are stored in your browser (IndexedDB) or in files you save. Videos used for Copy Dance and imported characters are never uploaded. The only network requests are the page and its static assets, Google Fonts, and, when the app was deployed without the bundled pose model, the pinned MediaPipe runtime from jsDelivr and the model file from Google storage (the dialog says so). The MCP bridge binds to 127.0.0.1 and only accepts allow-listed browser origins plus the pairing code. No analytics.
+Everything runs locally. Projects are stored in your browser (IndexedDB) or in files you save. Videos used for Copy Dance, reference images and imported characters are never uploaded. The only network requests are the page and its static assets, Google Fonts and, when the app was deployed without the bundled pose model, the pinned MediaPipe runtime from jsDelivr and the model file from Google storage (the Copy Dance dialog says so). The MCP bridge binds to 127.0.0.1 and only accepts allow-listed browser origins plus the pairing code. No analytics.
 
-## Development
+## Tech stack
+
+TypeScript, React 18, Vite, three.js with React Three Fiber and drei, zustand, three-vrm, MediaPipe Tasks Vision (pose), WebCodecs with mp4-muxer and webm-muxer, fflate, and the Model Context Protocol SDK for the agent server. The project state is plain JSON changed only through invertible commands (`src/core`), which is what makes undo, agents and tests simple. Vitest covers the core, retargeting, exports, the MCP bridge (smoke test) and the tutorial in AGENTS.md.
 
 ```
 npm test                       # vitest
-npm run build                  # tsc --noEmit + vite build (prebuild fetches the pose model if missing)
+npm run build                  # tsc --noEmit + vite build
 npm run smoke --prefix mcp     # MCP bridge smoke test
 npm run examples               # regenerate public/examples/*.mdoll.json from the command API
 ```
 
-Static hosting: `VITE_BASE=/sub/path/ npm run build` produces a host-agnostic `dist/`. Configs for Vercel, Netlify and Cloudflare Pages are included, plus GitHub Actions CI and a manual Pages workflow; no cross-origin isolation headers are needed. On Windows Git Bash prefix with `MSYS_NO_PATHCONV=1`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Static hosting: `VITE_BASE=/sub/path/ npm run build` produces a host-agnostic `dist/`. Configs for Vercel, Netlify and Cloudflare Pages are included. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Layout: `src/core` (pure TypeScript: rig, interpolation, IK, commands), `src/store.ts` (the only way to mutate the project is `dispatch(cmd)`), `src/three` (React Three Fiber scene), `src/retarget`, `src/anim`, `src/mocap`, `src/render`, `src/agent`, `src/ui`, `mcp` (separate package), `docs`, `scripts`.
-
-Known limitations: characters with different proportions can slide or float (foot pins help); Copy Dance depth is estimated, webcam-mocap quality; IK is a two-bone solver; glTF export cannot animate camera FOV; VRM spring bones and expressions are not simulated.
+Project files keep the `.mdoll.json` extension (Doloyo was called Motion Doll Studio before 0.6); older files, saved projects and imported characters carry over.
 
 ## Roadmap
 
-Done: posing and keyframes, agent bridge, export, characters and retargeting, animation library, Copy Dance, IK, curve editor, render camera, GLB and BVH (phases 1 to 3), and release preparation (phase 4). Next, pending decisions: choose a host and domain, publish `motion-doll-mcp` to npm, tag 1.0. Ideas after that: spine and multi-bone IK, face and hand tracking, more import formats.
+Done: posing and keyframes, agent bridge, export, characters and retargeting, animation library, Copy Dance, IK, curve editor, render camera, GLB and BVH, body sizes, reference images. Next, pending decisions: publish `doloyo-mcp` to npm, tag 1.0. Ideas after that: spine and multi-bone IK, face and hand tracking, more import formats.
 
-## Credits and license
+## Credits and licenses
 
-MIT, see [LICENSE](LICENSE). Characters and animations by [Quaternius](https://quaternius.com) (CC0). Pose model: MediaPipe (Apache-2.0). Built on three.js, React Three Fiber, drei, three-vrm, fflate, webm-muxer, mp4-muxer and the MCP SDK (all MIT). Full list: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [public/assets/CREDITS.md](public/assets/CREDITS.md). Changes: [CHANGELOG.md](CHANGELOG.md).
+Doloyo is MIT, see [LICENSE](LICENSE). Characters and animations by [Quaternius](https://quaternius.com) (CC0). Pose model: MediaPipe (Apache-2.0). Built on three.js, React Three Fiber, drei, three-vrm, fflate, webm-muxer, mp4-muxer and the MCP SDK (all MIT). Full list: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [public/assets/CREDITS.md](public/assets/CREDITS.md). Changes: [CHANGELOG.md](CHANGELOG.md).
+
+## Why Doloyo?
+
+An honest comparison. Doloyo is a small, focused posing and keyframe tool; the others are bigger or different in kind. A dash means "not covered here"; check each product's site for details.
+
+| | Runs in browser | Install | Price model | Keyframe editor | Video mocap | AI-agent control | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **Doloyo** | Yes | None for the web app; clone to run locally or to use the agent server | Free, MIT licensed | Yes (curves, bezier easing, IK, foot pins) | Yes, MediaPipe on your machine (webcam-grade) | Yes, MCP server | Humanoid 17-joint rig; reference images; exports PNG, video, GLB, BVH |
+| **Blender** | No | Desktop install | Free and open source | Yes (animation) | - | - | Full 3D suite (modeling, animation, rendering); steep learning curve for posing-only work |
+| **Cascadeur** | No | Desktop app | Freemium; paid export formats | Yes | - | - | Keyframe animation with physics and AI assistance; the free tier exports only its own .casc format, FBX/DAE/USD export needs a paid plan |
+| **Magic Poser** | Web version (also mobile and tablet apps) | Mobile/tablet app, or web | Freemium; paid Pro features | Focused on still poses | - | - | Posing for drawing references |
+| **Mixamo** | Yes (web service) | None (Adobe ID sign-in) | Free with an Adobe ID | Not a keyframe editor | - | - | Auto-rigging and a large animation library; Adobe can change the terms |
+
+Comparison as of November 2026; check each product's site for current details.
+
+### Where Doloyo falls short
+
+- It is not a full 3D suite: no modeling or sculpting and no rendering engine like Cycles.
+- The rig is one humanoid with 17 joints: no fingers and no face.
+- Video mocap is webcam-grade: depth is estimated and fast or hidden moves degrade it.
+- No physics.
+- The hosted agent connection is blocked in Safari (use the local app there).
+- Imported characters and reference images stay in the browser that imported them.

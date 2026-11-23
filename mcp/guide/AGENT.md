@@ -1,23 +1,24 @@
-# Motion Doll Studio - Agent command API
+# Doloyo - Agent command API
 
 Every mutation of the project is a JSON command. The UI and agents use the same path, so undo/redo works for both.
 
-Two ways in: the **MCP server** (`motion-doll-mcp`, next section) for agents, and the browser console for quick scripting:
+Two ways in: the **MCP server** (`doloyo-mcp`, next section) for agents, and the browser console for quick scripting (`window.doloyo`; the former name `window.motionDoll` is kept as an alias):
 
 ```js
-window.motionDoll.dispatch({ type: 'object_add', kind: 'mannequin' })  // -> { ok: true } | { ok: false, error }
-window.motionDoll.getState()   // deep copy of the project JSON
-window.motionDoll.help()       // command cheat sheet
+window.doloyo.dispatch({ type: 'object_add', kind: 'mannequin' })  // -> { ok: true } | { ok: false, error }
+window.doloyo.getState()   // deep copy of the project JSON
+window.doloyo.help()       // command cheat sheet
+await window.doloyo.dispatchAsync({ type: 'image_add', mode: 'background', dataUrl })  // image_add may carry a data URL
 ```
 
 ## MCP setup and pairing
 
 ```
-npm run mcp:install && npm run mcp:build          # once, from the motion-doll-studio folder
-claude mcp add motion-doll -- node <abs path>/mcp/dist/index.js
+npm run mcp:install && npm run mcp:build          # once, from the repository folder
+claude mcp add doloyo -- node <abs path>/mcp/dist/index.js
 ```
 
-The MCP server speaks MCP on stdio and opens a WebSocket bridge on 127.0.0.1:7777 (env `MOTION_DOLL_PORT`). The user must (1) run the app (`npm run dev`, http://localhost:5173), (2) open the **Agent** pill (top right), (3) type the 6-digit pairing code and click Connect. The code is returned by the `bridge_status` tool, printed on the server stderr and written to `motion-doll-pairing.txt` in the OS temp folder. If a tool says "No browser connected", tell the user the code and ask them to connect. Only the origins http://localhost:5173 and http://127.0.0.1:5173 (plus `MOTION_DOLL_ORIGINS`) are accepted; one browser tab at a time.
+The MCP server speaks MCP on stdio and opens a WebSocket bridge on 127.0.0.1:7777 (env `DOLOYO_PORT`; `MOTION_DOLL_PORT` still works). The user must (1) run the app (`npm run dev`, http://localhost:5173), (2) open the **Agent** pill (top right), (3) type the 6-digit pairing code and click Connect. The code is returned by the `bridge_status` tool, printed on the server stderr and written to `doloyo-pairing.txt` (and, for older scripts, `motion-doll-pairing.txt`) in the OS temp folder. If a tool says "No browser connected", tell the user the code and ask them to connect. Only the origins http://localhost:5173 and http://127.0.0.1:5173 (plus `DOLOYO_ORIGINS` / `MOTION_DOLL_ORIGINS`, every `--origin`, and with `--allow-hosted` the official hosted origins) are accepted; one browser tab at a time.
 
 ### Permission modes (set by the user in the Agent panel)
 
@@ -34,11 +35,13 @@ A denied call returns an error that names the required mode.
 ```
 bridge_status      -> {connected, pairingCode, port}
 guide_read         -> this document
-scene_get          -> fps, duration, time, objects (id, name, kind, transform, non-rest pose, key times), joints, poses, canUndo/canRedo
+scene_get          -> fps, duration, time, objects (id, name, kind, transform, non-rest pose, key times; image planes list their image options), backgrounds {viewport, camera}, joints, poses, canUndo/canRedo
 object_add object_set_character object_set_body object_remove object_transform joint_set pose_apply pose_save pose_delete pose_mirror joint_reset
 key_add key_remove key_move key_set_easing keys_edit keys_remove timeline_set playhead_seek batch      (same fields as the commands below)
 ik_reach ik_pin ik_bake        (inverse kinematics, foot pins)
 camera_set                     (the animated render camera)
+image_add {path|imageId, mode: background|plane|camera, name?, opacity?, inRender?, fit?, visible?, locked?, billboard?, doubleSided?, position?, rotation?, scale?}   (reference image from a LOCAL file)
+image_set {object|background, opacity?, visible?, locked?, inRender?, fit?, billboard?, doubleSided?, name?}   image_remove {object|background}
 scene_preset                   (duo / trio / group5 / keluarga formations, mixed gender)
 undo {steps?}   redo {steps?}
 anim_list {query?}   anim_apply {clip, objects?, start?, speed?, loops?, keyEvery?, mirror?, inPlace?, extend?}
@@ -47,7 +50,7 @@ viewport_snapshot {width?, height?}   -> PNG image (default 960x540)
 render_export {format: png|png_seq|webm|mp4|glb|bvh|project, width?, height?, fps?, transparent?, objects?, outDir?, filename?}  -> {path, ...}
 ```
 
-Each edit tool is the command of the same name (tool arguments = command fields). `object_add` returns the new object as `created: [{id, name}]`. `render_export` renders in the browser frame by frame (t = i / fps, with grid, gizmo and onion skin hidden), streams the bytes to the MCP server, which writes the file (default `./renders` under the server's working directory) and returns the absolute path. Default size is 1280x720. `png` = current playhead frame; `png_seq` = zip of PNGs; `webm` / `mp4` need WebCodecs in the browser (otherwise use `png_seq`); `transparent` works for png and png_seq. Non-looping clips include the final frame (duration * fps + 1 frames). If the scene has a render camera (kind `camera`) every image/video export uses it, with its animated values per frame and the aspect of the export size; otherwise the editor view is used. `glb` = animated glTF binary (Blender, Unity, Unreal): all mannequins and shapes, or the ones in `objects` (ids or names), baked at `fps` (default: project fps), skinned characters keep their skin and bone animation, the procedural doll is a joint-node hierarchy with meshes, the render camera is included as a camera node (position and direction baked; glTF cannot animate FOV, so the FOV of the first frame is stored); width and height are ignored except for the camera aspect. `bvh` = 17-joint motion of the first listed (or first) mannequin, centimeters, Y up. Pinned feet are included in both.
+Each edit tool is the command of the same name (tool arguments = command fields; `image_add` takes a file `path` and is turned into the command by the MCP server). `object_add` returns the new object as `created: [{id, name}]`. `render_export` renders in the browser frame by frame (t = i / fps, with grid, gizmo and onion skin hidden), streams the bytes to the MCP server, which writes the file (default `./renders` under the server's working directory) and returns the absolute path. Default size is 1280x720. `png` = current playhead frame; `png_seq` = zip of PNGs; `webm` / `mp4` need WebCodecs in the browser (otherwise use `png_seq`); `transparent` works for png and png_seq. Non-looping clips include the final frame (duration * fps + 1 frames). If the scene has a render camera (kind `camera`) every image/video export uses it, with its animated values per frame and the aspect of the export size; otherwise the editor view is used. `glb` = animated glTF binary (Blender, Unity, Unreal): all mannequins and shapes, or the ones in `objects` (ids or names), baked at `fps` (default: project fps), skinned characters keep their skin and bone animation, the procedural doll is a joint-node hierarchy with meshes, the render camera is included as a camera node (position and direction baked; glTF cannot animate FOV, so the FOV of the first frame is stored); width and height are ignored except for the camera aspect. `bvh` = 17-joint motion of the first listed (or first) mannequin, centimeters, Y up. Pinned feet are included in both.
 
 ### Suggested workflow
 
@@ -217,6 +220,25 @@ batch            { commands: [...] }
 
 Every image/video/glb export then uses this camera (animated, aspect = export width / height). Without a render camera the exporters use the editor view. `viewport_snapshot` shows the editor view.
 
+## Reference images
+
+Three ways to use a picture (png, jpg, webp, gif = first frame, svg), all local: the picture is stored in the browser (IndexedDB) next to imported characters, and the project file references it by id (opening a project whose pictures are missing shows a warning; "Embed images" on save puts pictures up to 2 MB into the file).
+
+- `mode: "background"`: screen-space picture behind the viewport. `fit` = `fit` (whole picture, default), `fill` (covers the frame) or `center` (original pixels); `opacity`; `visible`.
+- `mode: "plane"`: an object of kind `image` in the 3D scene, a textured plane `aspect` m wide and 1 m high before the scale (default scale 1.6, position `[0, 0.9, -1.2]`). It moves, rotates and scales like a shape, so `object_transform` and `key_add` (channels `position`, `rotation`, `scale`) animate it. Options: `opacity`, `doubleSided` (default true), `locked` (cannot be picked in the viewport; still in the outliner), `billboard` (always faces the camera; the rotation is ignored).
+- `mode: "camera"`: picture locked to the render camera frame. It shows while looking through the camera (C) and is composited in exports. It needs a render camera (see Render camera); default `fit` is `fill`.
+
+`inRender` (default true) decides whether the picture is part of snapshots (`viewport_snapshot`), image/video exports and GLB. A plane with `inRender: false` stays in the editor only. In GLB an image plane becomes a textured quad (unlit, animated by its keys; billboards keep the pose of the object). Adding a background replaces the one in that slot. Everything is undoable and a `batch` can mix them.
+
+```json
+{ "type": "image_add", "mode": "background", "path": "D:/refs/nursery.png", "fit": "fill", "opacity": 0.9 }
+{ "type": "image_set", "background": "viewport", "visible": false }
+{ "type": "image_set", "object": "Poster", "billboard": true, "locked": true }
+{ "type": "image_remove", "background": "camera" }
+```
+
+As MCP tools `image_add` takes `path` (an absolute path on the machine running the MCP server, up to 20 MB, image extensions only; no URLs) or `imageId` (a picture already stored in the browser); the local path is never sent to the browser. In the browser console `dispatchAsync` also accepts `dataUrl`. Options that do not apply to the target (for example `fit` on a plane, `locked` on a background) are an error.
+
 ## Scene presets and multi-key edits
 
 `scene_preset { preset: "trio", character: "superhero-f", clear: true }` adds 2, 3, 4 or 5 new mannequins (`keluarga` = father, child, baby sitting in the `duduk` pose, mother; without `character` the dolls alternate Mannequin F / Mannequin M; `body` gives every doll one size, not allowed for keluarga) in an arc facing +Z (ends curve toward the audience and turn inward), as one undo step; `clear` first removes the existing mannequins. `keys_edit` / `keys_remove` change several keys as one undo step (see Commands).
@@ -230,7 +252,7 @@ Every image/video/glb export then uses this camera (animated, aspect = export wi
 ## Example: a 2 second wave
 
 ```js
-const d = (c) => window.motionDoll.dispatch(c);
+const d = (c) => window.doloyo.dispatch(c);
 d({ type: 'timeline_set', fps: 24, duration: 2 });
 d({ type: 'object_add', kind: 'mannequin', name: 'Wave' });
 d({ type: 'pose_apply', object: 'Wave', pose: 'stand' });
@@ -250,6 +272,8 @@ d({ type: 'playhead_seek', frame: 0 });
 
 ## Project file (.mdoll.json)
 
+The extension stayed `.mdoll.json` after the rename from Motion Doll Studio: older files keep opening.
+
 ```json
 {
   "version": 1, "name": "Untitled", "fps": 30, "duration": 4, "loop": false, "time": 0,
@@ -264,6 +288,10 @@ d({ type: 'playhead_seek', frame: 0 });
     "position": [2.8, 1.6, 3.8], "target": [0, 0.9, 0], "fov": 40,
     "tracks": { "fov": [{ "t": 0, "value": [40, 0, 0], "easing": "linear" }] }
   }],
-  "customPoses": { "my pose": { "joints": { "head": [0,20,0] }, "hipsPos": [0,-0.1,0] } }
+  "customPoses": { "my pose": { "joints": { "head": [0,20,0] }, "hipsPos": [0,-0.1,0] } },
+  "background": { "imageId": "img...", "name": "nursery", "aspect": 1.78, "opacity": 1, "visible": true, "inRender": true, "fit": "fill" },
+  "cameraBackground": { "imageId": "img...", "name": "set", "aspect": 1.78, "opacity": 1, "visible": true, "inRender": true, "fit": "fill" }
 }
 ```
+
+An image plane is an object `{ "kind": "image", ..., "image": { "imageId", "aspect", "opacity", "doubleSided", "locked", "inRender", "billboard" } }`. A file saved with "Embed images" also has `embeddedImages: { "<imageId>": "data:image/...;base64,..." }`; opening it stores those pictures in the browser.

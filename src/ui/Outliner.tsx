@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { BODY_LABEL } from '../core/body';
 import { CHILDREN } from '../core/rig';
-import { OBJECT_KINDS, type BodyPreset, type Gender, type JointName, type ObjectKind } from '../core/types';
+import { OBJECT_KINDS, type BackdropSlot, type BodyPreset, type Gender, type JointName, type ObjectKind } from '../core/types';
 import { KIND_LABEL, SCENE_PRESETS, type ScenePreset } from '../core/commands';
 import { listCharacters, onRegistryChange, registryVersion } from '../characters/registry';
 import { useStore } from '../store';
 import { Icon } from './Icons';
 import { addCameraFromView } from './keyActions';
+import { openImagePicker } from './ImageUi';
 import { Pop } from './Popover';
+import { useUi } from './uiStore';
 
 /** Quick add of a body size x gender. Labels are Indonesian. */
 const QUICK_ADD: { label: string; preset: BodyPreset; gender: Gender }[] = [
@@ -98,9 +100,10 @@ function ObjectItem({ id, kind, name }: { id: string; kind: ObjectKind; name: st
   const select = useStore((s) => s.select);
   const toggle = useStore((s) => s.toggleCollapse);
   const isDoll = kind === 'mannequin';
+  const locked = useStore((s) => !!s.project.objects.find((o) => o.id === id)?.image?.locked);
   return (
     <>
-      <div className={'row-item' + (selected ? ' sel' : '')} onClick={() => select(id, null)}>
+      <div className={'row-item' + (selected ? ' sel' : '')} onClick={() => { useUi.getState().setBgSelected(null); select(id, null); }}>
         {isDoll ? (
           <button
             className="chev-btn"
@@ -117,15 +120,45 @@ function ObjectItem({ id, kind, name }: { id: string; kind: ObjectKind; name: st
         )}
         <Icon name={kind} size={14} />
         <span className="ellipsis">{name}</span>
+        {locked && <span className="muted small">locked</span>}
       </div>
       {isDoll && open && <JointTree id={id} name="hips" depth={1} />}
     </>
   );
 }
 
+const BG_LABEL: Record<BackdropSlot, string> = { viewport: 'Viewport background', camera: 'Camera background' };
+
+/** Row of a background image (they are not scene objects: screen-space or locked to the render camera). */
+function BackdropRow({ slot }: { slot: BackdropSlot }) {
+  const b = useStore((s) => (slot === 'camera' ? s.project.cameraBackground : s.project.background));
+  const slotSel = useUi((s) => s.bgSelected === slot);
+  const noObject = useStore((s) => !s.selection.object);
+  const selected = slotSel && noObject;
+  if (!b) return null;
+  return (
+    <div
+      className={'row-item' + (selected ? ' sel' : '')}
+      title={`${BG_LABEL[slot]}: ${b.name}`}
+      onClick={() => {
+        useStore.getState().select(null);
+        useUi.getState().setBgSelected(slot);
+      }}
+    >
+      <span className="chev" />
+      <Icon name="image" size={14} />
+      <span className="ellipsis">{BG_LABEL[slot]}: {b.name}</span>
+      {!b.visible && <span className="muted small">hidden</span>}
+    </div>
+  );
+}
+
 export function Outliner() {
   const sig = useStore((s) => s.project.objects.map((o) => [o.id, o.kind, o.name].join('\u0001')).join('\u0002'));
   const selectedId = useStore((s) => s.selection.object);
+  const bgSel = useUi((s) => s.bgSelected);
+  const hasBg = useStore((s) => (bgSel === 'camera' ? !!s.project.cameraBackground : bgSel === 'viewport' ? !!s.project.background : false));
+  const anyBg = useStore((s) => !!(s.project.background || s.project.cameraBackground));
   const dispatch = useStore((s) => s.dispatch);
   const [menu, setMenu] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -152,7 +185,7 @@ export function Outliner() {
           </button>
           {menu && (
             <div className="menu-pop right">
-              {OBJECT_KINDS.map((k) => (
+              {OBJECT_KINDS.filter((k) => k !== 'image').map((k) => (
                 <button
                   key={k}
                   className="menu-item"
@@ -168,6 +201,19 @@ export function Outliner() {
                   </span>
                 </button>
               ))}
+              <button
+                className="menu-item"
+                title="Viewport background, image plane or camera background"
+                onClick={() => {
+                  setMenu(false);
+                  openImagePicker();
+                }}
+              >
+                <span className="with-icon">
+                  <Icon name="image" size={14} />
+                  Reference image...
+                </span>
+              </button>
               <div className="menu-sep" />
               <div className="menu-label muted small">Ukuran tubuh</div>
               {QUICK_ADD.map((q) => (
@@ -192,8 +238,11 @@ export function Outliner() {
         <button
           className="icon-btn"
           title="Delete selected object (Delete)"
-          disabled={!selectedId}
-          onClick={() => selectedId && dispatch({ type: 'object_remove', object: selectedId })}
+          disabled={!selectedId && !(bgSel && hasBg)}
+          onClick={() => {
+            if (selectedId) dispatch({ type: 'object_remove', object: selectedId });
+            else if (bgSel && hasBg) dispatch({ type: 'image_remove', background: bgSel });
+          }}
         >
           <Icon name="trash" />
         </button>
@@ -202,7 +251,10 @@ export function Outliner() {
         {items.map(([id, kind, name]) => (
           <ObjectItem key={id} id={id} kind={kind as ObjectKind} name={name} />
         ))}
-        {!items.length && <div className="empty">Scene is empty. Use + to add an object.</div>}
+        {anyBg && <div className="outliner-sep muted small">Reference images</div>}
+        <BackdropRow slot="viewport" />
+        <BackdropRow slot="camera" />
+        {!items.length && !anyBg && <div className="empty">Scene is empty. Use + to add an object.</div>}
       </div>
     </div>
   );

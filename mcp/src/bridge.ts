@@ -6,12 +6,19 @@ import { join } from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
 
 /** STDOUT is reserved for the MCP protocol. Everything human-readable goes to stderr. */
-export const log = (...a: unknown[]) => console.error('[motion-doll]', ...a);
+export const log = (...a: unknown[]) => console.error('[doloyo]', ...a);
 
 export const DEFAULT_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 /** Official hosted deployments, enabled with --allow-hosted. */
-export const HOSTED_ORIGINS: string[] = ['https://doll.tirtavex.tech', 'https://motion-doll-studio.vercel.app'];
-export const PAIRING_FILE = join(tmpdir(), 'motion-doll-pairing.txt');
+export const HOSTED_ORIGINS: string[] = [
+  'https://doll.tirtavex.tech',
+  'https://motion-doll-studio.vercel.app',
+  'https://doloyo.vercel.app',
+  'https://doloyo.tirtavex.tech',
+];
+export const PAIRING_FILE = join(tmpdir(), 'doloyo-pairing.txt');
+/** Former name of the pairing file; still written so older scripts that read it keep working. */
+export const LEGACY_PAIRING_FILE = join(tmpdir(), 'motion-doll-pairing.txt');
 export const CLOSE_BAD_CODE = 4001;
 export const CLOSE_REPLACED = 4002;
 const HELLO_TIMEOUT_MS = 5000;
@@ -36,6 +43,8 @@ export interface BridgeOptions {
   port: number;
   origins: string[];
   pairingFile?: string;
+  /** Second file that gets the same code (default: the former motion-doll-pairing.txt; pass null to skip). */
+  legacyPairingFile?: string | null;
 }
 
 function genCode(): string {
@@ -49,6 +58,7 @@ export class Bridge {
   listenError: string | null = null;
   private readonly origins: Set<string>;
   private readonly pairingFile: string;
+  private readonly legacyPairingFile: string | null;
   private readonly server: http.Server;
   private readonly wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 * 1024 });
   private client: WebSocket | null = null;
@@ -59,17 +69,18 @@ export class Bridge {
   constructor(opts: BridgeOptions) {
     this.port = opts.port;
     this.pairingFile = opts.pairingFile ?? PAIRING_FILE;
+    this.legacyPairingFile = opts.legacyPairingFile === undefined ? (opts.pairingFile ? null : LEGACY_PAIRING_FILE) : opts.legacyPairingFile;
     this.origins = new Set(opts.origins.map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean));
     this.server = http.createServer((_req, res) => {
       res.writeHead(426, { 'content-type': 'text/plain' });
-      res.end('Motion Doll bridge: WebSocket only');
+      res.end('Doloyo bridge: WebSocket only');
     });
     this.server.on('upgrade', (req, socket, head) => {
       const origin = req.headers.origin;
       const host = (req.headers.host ?? '').toLowerCase();
       const okHost = host === `127.0.0.1:${this.port}` || host === `localhost:${this.port}`;
       if (!origin || !this.origins.has(origin) || !okHost) {
-        log(`Rejected connection (origin: ${origin ?? 'none'}, host: ${host || 'none'}). Add the origin with --origin <url> or MOTION_DOLL_ORIGINS if it is legitimate.`);
+        log(`Rejected connection (origin: ${origin ?? 'none'}, host: ${host || 'none'}). Add the origin with --origin <url> or DOLOYO_ORIGINS if it is legitimate.`);
         socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
         socket.destroy();
         return;
@@ -83,11 +94,14 @@ export class Bridge {
   }
 
   announceCode(): void {
-    log(`Pairing code: ${this.code} - enter it in the Agent panel of Motion Doll Studio`);
-    try {
-      writeFileSync(this.pairingFile, this.code + '\n');
-    } catch (e) {
-      log('Could not write pairing file:', e instanceof Error ? e.message : e);
+    log(`Pairing code: ${this.code} - enter it in the Agent panel of Doloyo`);
+    for (const file of [this.pairingFile, this.legacyPairingFile]) {
+      if (!file) continue;
+      try {
+        writeFileSync(file, this.code + '\n');
+      } catch (e) {
+        log('Could not write pairing file:', e instanceof Error ? e.message : e);
+      }
     }
   }
 
@@ -96,7 +110,7 @@ export class Bridge {
     this.announceCode();
     return new Promise((resolve) => {
       this.server.once('error', (e: NodeJS.ErrnoException) => {
-        this.listenError = e.code === 'EADDRINUSE' ? `Port ${this.port} is already in use (another Motion Doll MCP server running?). Set MOTION_DOLL_PORT.` : e.message;
+        this.listenError = e.code === 'EADDRINUSE' ? `Port ${this.port} is already in use (another Doloyo MCP server running?). Set DOLOYO_PORT.` : e.message;
         log('Bridge not listening:', this.listenError);
         resolve();
       });
@@ -199,9 +213,9 @@ export class Bridge {
 
   /** Message for the agent when no browser is paired. */
   notConnectedMessage(): string {
-    if (this.listenError) return `Motion Doll bridge is not running: ${this.listenError}`;
+    if (this.listenError) return `Doloyo bridge is not running: ${this.listenError}`;
     return (
-      'No browser connected. Ask the user to open Motion Doll Studio (http://localhost:5173), open the Agent panel (top right), ' +
+      'No browser connected. Ask the user to open Doloyo (http://localhost:5173, or the hosted app when the server runs with --allow-hosted), open the Agent panel (top right), ' +
       `enter the pairing code ${this.code} and click Connect. Then retry.`
     );
   }

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
-// VITE_BASE: public base path of the deployment, e.g. "/" (default) or "/motion-doll-studio/" (GitHub Pages project site).
+// VITE_BASE: public base path of the deployment, e.g. "/" (default) or "/doloyo/" (GitHub Pages project site).
 function normBase(raw: string): string {
   // Git Bash on Windows rewrites VITE_BASE=/foo/ into C:/Program Files/Git/foo/; fail loudly instead of building a broken site
   if (/^[A-Za-z]:[\/]/.test(raw)) throw new Error(`VITE_BASE looks like a Windows path (${raw}). In Git Bash run: MSYS_NO_PATHCONV=1 VITE_BASE=/name/ npm run build`);

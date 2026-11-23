@@ -1,6 +1,6 @@
 # Third-party notices
 
-Motion Doll Studio itself is MIT licensed (see LICENSE). It bundles or uses the following. Licenses were read from each package's `package.json` at the pinned versions.
+Doloyo itself is MIT licensed (see LICENSE). It bundles or uses the following. Licenses were read from each package's `package.json` at the pinned versions.
 
 ## Assets and models
 
@@ -25,7 +25,7 @@ Motion Doll Studio itself is MIT licensed (see LICENSE). It bundles or uses the 
 | webm-muxer | 5.0.3 | MIT |
 | mp4-muxer | 5.2.2 | MIT |
 
-## MCP server (`motion-doll-mcp`)
+## MCP server (`doloyo-mcp`)
 
 | Package | Version | License |
 | --- | --- | --- |

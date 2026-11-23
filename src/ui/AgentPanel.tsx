@@ -13,7 +13,7 @@ const MODE_HELP: Record<PermissionMode, string> = {
 
 const fmt = (t: number) => new Date(t).toLocaleTimeString([], { hour12: false });
 const isHttpsPage = () => typeof location !== 'undefined' && location.protocol === 'https:';
-const SETUP = 'claude mcp add motion-doll -- node <path>/mcp/dist/index.js';
+const SETUP = 'claude mcp add doloyo -- node <path>/mcp/dist/index.js';
 
 export function AgentPill() {
   const status = useAgent((s) => s.status);
@@ -97,7 +97,7 @@ function AgentPopover() {
 
       {isHttpsPage() && (
         <div className="note small">
-          This page is served over https and talks to your local bridge at <span className="mono">ws://127.0.0.1:{BRIDGE_PORT}</span>. Chrome and Edge may show a Private Network Access prompt: allow it for this site. Safari blocks this connection; use the local install (<span className="mono">npm start</span>) instead. Start the bridge with <span className="mono">{'node <path>/motion-doll-studio/mcp/dist/index.js --origin ' + location.origin}</span> if this site is not on its allowlist.
+          This page is served over https and talks to your local bridge at <span className="mono">ws://127.0.0.1:{BRIDGE_PORT}</span>. Chrome and Edge may show a Private Network Access prompt: allow it for this site. Safari blocks this connection; use the local install (<span className="mono">npm start</span>) instead. Start the bridge with <span className="mono">{'node <path>/mcp/dist/index.js --origin ' + location.origin}</span> if this site is not on its allowlist.
         </div>
       )}
 
@@ -107,7 +107,7 @@ function AgentPopover() {
       </div>
       <pre className="code mono">{SETUP}</pre>
       <div className="muted small">
-        The server prints a pairing code on stderr and writes it to <span className="mono">motion-doll-pairing.txt</span> in the system temp folder (or ask the agent for <span className="mono">bridge_status</span>). Bridge port {BRIDGE_PORT}.
+        The server prints a pairing code on stderr and writes it to <span className="mono">doloyo-pairing.txt</span> in the system temp folder (or ask the agent for <span className="mono">bridge_status</span>). Bridge port {BRIDGE_PORT}.
       </div>
 
       <div className="section-title sm log-head">

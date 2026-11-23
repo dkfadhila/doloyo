@@ -51,5 +51,5 @@ export function mimeFor(format: ExportFormat): string {
 }
 
 export function safeName(name: string): string {
-  return (name || 'motion-doll').replace(/[^\w\-]+/g, '_').replace(/^_+|_+$/g, '') || 'motion-doll';
+  return (name || 'doloyo').replace(/[^\w\-]+/g, '_').replace(/^_+|_+$/g, '') || 'doloyo';
 }

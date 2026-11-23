@@ -12,7 +12,7 @@ import WebSocket from 'ws';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 17000 + Math.floor(Math.random() * 2000);
 const ORIGIN = 'http://localhost:5173';
-const outDir = mkdtempSync(join(tmpdir(), 'motion-doll-smoke-'));
+const outDir = mkdtempSync(join(tmpdir(), 'doloyo-smoke-'));
 let passed = 0;
 const ok = (name) => console.log('  ok  ' + name) || passed++;
 
@@ -22,12 +22,13 @@ const EXPECTED_TOOLS = [
   'key_set_easing', 'timeline_set', 'playhead_seek', 'batch', 'undo', 'redo', 'viewport_snapshot', 'render_export',
   'object_set_character', 'anim_list', 'anim_apply', 'mocap_from_video',
   'keys_edit', 'keys_remove', 'ik_reach', 'ik_pin', 'ik_bake', 'camera_set', 'scene_preset', 'object_set_body',
+  'image_add', 'image_set', 'image_remove',
 ];
 
 const transport = new StdioClientTransport({
   command: process.execPath,
   args: [join(root, 'dist', 'index.js')],
-  env: { ...process.env, MOTION_DOLL_PORT: String(PORT) },
+  env: { ...process.env, DOLOYO_PORT: String(PORT) },
   stderr: 'pipe',
 });
 let stderr = '';
@@ -61,11 +62,16 @@ try {
   const cli = (...args) => spawnSync(process.execPath, [join(root, 'dist', 'index.js'), ...args], { encoding: 'utf8', timeout: 10000 });
   const help = cli('--help');
   assert.equal(help.status, 0);
-  assert.match(help.stdout, /Usage: motion-doll-mcp/);
+  assert.match(help.stdout, /Usage: doloyo-mcp/);
+  assert.match(help.stdout, /DOLOYO_PORT/);
+  assert.match(help.stdout, /MOTION_DOLL_PORT/);
   assert.match(help.stdout, /--origin <url>/);
   assert.match(help.stdout, /--allow-hosted/);
   const pkgVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
   assert.equal(cli('--version').stdout.trim(), pkgVersion);
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  assert.equal(pkg.name, 'doloyo-mcp');
+  assert.deepEqual(Object.keys(pkg.bin).sort(), ['doloyo-mcp', 'motion-doll-mcp'], 'the old bin name stays as an alias');
   assert.equal(cli('--nope').status, 2);
   assert.equal(cli('--origin', 'not-a-url').status, 2);
   assert.match(readFileSync(join(root, 'dist', 'index.js'), 'utf8').split('\n')[0], /^#!\/usr\/bin\/env node/);
@@ -86,15 +92,16 @@ try {
   assert.equal(status.connected, false);
   assert.match(status.pairingCode, /^\d{6}$/);
   assert.equal(status.port, PORT);
-  const fileCode = readFileSync(join(tmpdir(), 'motion-doll-pairing.txt'), 'utf8').trim();
+  const fileCode = readFileSync(join(tmpdir(), 'doloyo-pairing.txt'), 'utf8').trim();
   assert.equal(fileCode, status.pairingCode);
+  assert.equal(readFileSync(join(tmpdir(), 'motion-doll-pairing.txt'), 'utf8').trim(), status.pairingCode, 'the former pairing file is still written');
   assert.match(stderr, /Pairing code: \d{6}/);
   ok('bridge_status + pairing file + stderr banner');
   const code = status.pairingCode;
 
   // guide
   const guide = textOf(await client.callTool({ name: 'guide_read', arguments: {} }));
-  assert.match(guide, /Motion Doll/);
+  assert.match(guide, /Doloyo/);
   ok('guide_read');
 
   // no browser
@@ -116,7 +123,7 @@ try {
     const { spawn } = await import('node:child_process');
     const port2 = PORT + 2500;
     const child = spawn(process.execPath, [join(root, 'dist', 'index.js'), '--allow-hosted', '--origin', 'https://studio.example.com/some/path', '--origin=https://b.example.org'], {
-      env: { ...process.env, MOTION_DOLL_PORT: String(port2) },
+      env: { ...process.env, MOTION_DOLL_PORT: String(port2), MOTION_DOLL_ORIGINS: 'https://legacy-env.example.com' },
       stdio: ['pipe', 'ignore', 'pipe'],
     });
     try {
@@ -134,8 +141,10 @@ try {
         });
       assert.equal(await probe('https://studio.example.com'), 'open');
       assert.equal(await probe('https://b.example.org'), 'open');
+      for (const hosted of ['https://doll.tirtavex.tech', 'https://motion-doll-studio.vercel.app', 'https://doloyo.vercel.app', 'https://doloyo.tirtavex.tech']) assert.equal(await probe(hosted), 'open', hosted);
+      assert.equal(await probe('https://legacy-env.example.com'), 'open', 'MOTION_DOLL_ORIGINS still works');
       assert.equal(await probe('https://evil.example.com'), 403);
-      ok('--origin (repeatable) and --allow-hosted: configured origins accepted, others 403');
+      ok('--origin (repeatable), --allow-hosted (4 hosted origins), legacy MOTION_DOLL_* env: accepted, others 403');
     } finally {
       child.kill();
     }
@@ -248,6 +257,48 @@ try {
   assert.deepEqual(calls.at(-1).params, { type: 'object_add', kind: 'mannequin', name: 'Bayi', body: { preset: 'kecil', gender: 'm' } });
   ok('object_set_body / object_add body forward as dispatch and validate preset, heightScale and gender');
 
+  // ---- reference images: the server reads a local file and streams it; no URLs ----
+  const pngFile = join(outDir, 'ref.png');
+  writeFileSync(pngFile, Buffer.from(PNG_1X1, 'base64'));
+  const before = uploads.length;
+  await client.callTool({ name: 'image_add', arguments: { path: pngFile, mode: 'background', opacity: 0.6, fit: 'fill', inRender: true } });
+  assert.equal(uploads.length, before + 1);
+  assert.deepEqual(Buffer.from(uploads.at(-1).data, 'base64'), Buffer.from(PNG_1X1, 'base64'));
+  const addCall = calls.at(-1);
+  assert.equal(addCall.method, 'dispatch');
+  assert.deepEqual(addCall.params, { type: 'image_add', mode: 'background', opacity: 0.6, fit: 'fill', inRender: true, uploadId: uploads.at(-1).uploadId, mime: 'image/png', filename: 'ref.png' });
+  assert.equal(addCall.params.path, undefined, 'the local path is not forwarded');
+  await client.callTool({ name: 'image_add', arguments: { path: pngFile, mode: 'plane', name: 'Backdrop', position: [0, 1, -2], billboard: true, locked: true } });
+  assert.equal(calls.at(-1).params.mode, 'plane');
+  assert.equal(calls.at(-1).params.billboard, true);
+  await client.callTool({ name: 'image_add', arguments: { imageId: 'img123', mode: 'camera' } });
+  assert.deepEqual(calls.at(-1).params, { type: 'image_add', imageId: 'img123', mode: 'camera' });
+  await client.callTool({ name: 'image_set', arguments: { background: 'viewport', visible: false, opacity: 0.3 } });
+  assert.deepEqual(calls.at(-1).params, { type: 'image_set', background: 'viewport', visible: false, opacity: 0.3 });
+  await client.callTool({ name: 'image_set', arguments: { object: 'Backdrop', inRender: false } });
+  assert.deepEqual(calls.at(-1).params, { type: 'image_set', object: 'Backdrop', inRender: false });
+  await client.callTool({ name: 'image_remove', arguments: { background: 'camera' } });
+  assert.deepEqual(calls.at(-1).params, { type: 'image_remove', background: 'camera' });
+  const nCalls = calls.length;
+  const bigImg = join(outDir, 'big.png');
+  writeFileSync(bigImg, Buffer.alloc(20 * 1024 * 1024 + 1, 1));
+  const imgBad = [
+    { path: 'relative.png', mode: 'plane' },
+    { path: join(outDir, 'missing.png'), mode: 'plane' },
+    { path: join(outDir, 'dance.mp4'), mode: 'plane' },
+    { path: bigImg, mode: 'plane' },
+    { path: 'https://example.com/a.png', mode: 'plane' },
+    { mode: 'plane' },
+    { path: pngFile, imageId: 'x', mode: 'plane' },
+    { path: pngFile, mode: 'wall' },
+  ];
+  for (const args of imgBad) {
+    const r = await client.callTool({ name: 'image_add', arguments: args }).catch((e) => ({ isError: true, content: [{ type: 'text', text: String(e.message) }] }));
+    assert.equal(r.isError, true, JSON.stringify(args));
+  }
+  assert.equal(calls.length, nCalls, 'invalid image requests never reach the browser');
+  ok('image_add streams a local file (<= 20 MB, image types only, no URLs); image_set / image_remove forward');
+
   const list = json(await client.callTool({ name: 'anim_list', arguments: { query: 'dance' } }));
   assert.equal(calls.at(-1).method, 'anim_list');
   assert.deepEqual(calls.at(-1).params, { query: 'dance' });
@@ -269,6 +320,7 @@ try {
   video.write('ftypmp42', 4);
   const videoPath = join(outDir, 'dance.mp4');
   writeFileSync(videoPath, video);
+  uploads.length = 0; // the image uploads above used the same chunk channel
   const mo = json(await client.callTool({ name: 'mocap_from_video', arguments: { path: videoPath, maxPeople: 2, assign: [{ track: 1, object: 'Mannequin 1' }], smoothing: 0.3, footLock: true } }));
   assert.equal(uploads.length, 3, 'a 7 MB file is sent as 3 chunks');
   assert.deepEqual(Buffer.concat(uploads.sort((a, b) => a.seq - b.seq).map((u) => Buffer.from(u.data, 'base64'))), video);

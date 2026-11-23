@@ -49,7 +49,7 @@ export function ShortcutsModal() {
 }
 
 const LICENSES: [string, string][] = [
-  ['Motion Doll Studio', 'MIT'],
+  ['Doloyo', 'MIT'],
   ['Quaternius characters and animations', 'CC0 1.0'],
   ['MediaPipe Pose Landmarker', 'Apache-2.0'],
   ['three.js, React Three Fiber, drei, three-vrm', 'MIT'],
@@ -60,8 +60,12 @@ export function AboutModal() {
   const set = useUi((s) => s.setAboutOpen);
   return (
     <Modal title="About" open={open} onClose={() => set(false)}>
-      <div className="about-name">Motion Doll Studio <span className="mono muted">v{version}</span></div>
-      <div className="muted">Browser 3D pose and keyframe animation. Everything runs on your machine; projects and videos are not uploaded.</div>
+      <div className="about-name">Doloyo <span className="mono muted">v{version}</span></div>
+      <div>Your floppy little motion studio.</div>
+      <div className="muted">Browser 3D pose and keyframe animation. Everything runs on your machine; projects, images and videos are not uploaded.</div>
+      <div className="small">
+        <a href="https://doloyo.vercel.app" target="_blank" rel="noreferrer">doloyo.vercel.app</a> | <a href="https://github.com/dkfadhila/doloyo" target="_blank" rel="noreferrer">github.com/dkfadhila/doloyo</a>
+      </div>
       <table className="kbd-table">
         <tbody>
           {LICENSES.map(([n, l]) => (

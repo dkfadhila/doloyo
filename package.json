@@ -1,7 +1,7 @@
 {
-  "name": "motion-doll-studio",
+  "name": "doloyo",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Browser 3D pose and keyframe animation studio, local-first, drivable by AI agents over MCP",
   "license": "MIT",
   "type": "module",

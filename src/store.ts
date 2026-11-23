@@ -192,7 +192,7 @@ export const useStore = create<State>((set, get) => ({
       return { ok: true };
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
-      console.warn('[motionDoll] command failed:', error);
+      console.warn('[doloyo] command failed:', error);
       return { ok: false, error };
     }
   },
@@ -211,7 +211,7 @@ export const useStore = create<State>((set, get) => ({
         keySet: pruneKeys(s.keySet, r.project),
       });
     } catch (err) {
-      console.warn('[motionDoll] undo failed', err);
+      console.warn('[doloyo] undo failed', err);
       set({ undoStack: [], redoStack: [] });
     }
   },
@@ -230,7 +230,7 @@ export const useStore = create<State>((set, get) => ({
         keySet: pruneKeys(s.keySet, r.project),
       });
     } catch (err) {
-      console.warn('[motionDoll] redo failed', err);
+      console.warn('[doloyo] redo failed', err);
       set({ undoStack: [], redoStack: [] });
     }
   },
@@ -293,22 +293,29 @@ export function selectedObject(s: Pick<State, 'project' | 'selection'>): SceneOb
 }
 
 // ---- console API (the MCP bridge in src/agent/bridge.ts uses the same dispatch) ----
+export interface DoloyoApi {
+  dispatch: (cmd: Command) => DispatchResult;
+  /** Like dispatch, but image_add may carry a dataUrl (it is stored in this browser first). */
+  dispatchAsync?: (cmd: Record<string, unknown> & { type: string }) => Promise<DispatchResult>;
+  getState: () => Project;
+  help: () => string;
+  anim?: { list: (q?: string) => Promise<unknown>; apply: (req: never) => Promise<unknown> };
+  mocap?: { fromBlob: (blob: Blob, p: never) => Promise<unknown> };
+  render?: (o: never, label?: string) => Promise<unknown>;
+}
 declare global {
   interface Window {
-    motionDoll: {
-      dispatch: (cmd: Command) => DispatchResult;
-      getState: () => Project;
-      help: () => string;
-      anim?: { list: (q?: string) => Promise<unknown>; apply: (req: never) => Promise<unknown> };
-      mocap?: { fromBlob: (blob: Blob, p: never) => Promise<unknown> };
-      render?: (o: never, label?: string) => Promise<unknown>;
-    };
+    doloyo: DoloyoApi;
+    /** Former name of window.doloyo, kept as an alias (same object). */
+    motionDoll: DoloyoApi;
   }
 }
 if (typeof window !== 'undefined') {
-  window.motionDoll = {
+  const api: DoloyoApi = {
     dispatch: (cmd) => useStore.getState().dispatch(cmd),
     getState: () => JSON.parse(JSON.stringify(useStore.getState().project)),
     help: () => COMMAND_HELP,
   };
+  window.doloyo = api;
+  window.motionDoll = api;
 }

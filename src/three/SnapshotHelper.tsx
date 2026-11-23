@@ -1,6 +1,7 @@
 import { useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
-import { PerspectiveCamera, Vector2, type Object3D } from 'three';
+import { Color, PerspectiveCamera, Vector2, type Object3D } from 'three';
+import { BG_COLOR, composeFrame, renderBackdrops } from '../render/backdrop';
 import { useStore } from '../store';
 import { applyAll, live, registerRenderContext, registerSnapshot, type SnapshotOptions } from './shared';
 
@@ -20,6 +21,7 @@ export function SnapshotHelper() {
       const prevBg = scene.background;
       const prevAlpha = gl.getClearAlpha();
       const hidden: Object3D[] = [];
+      applyAll(); // refresh derived flags (an image plane's "in render") before looking at noSnap
       scene.traverse((obj) => {
         if (obj.visible && (obj.userData.noSnap || (obj as unknown as { isTransformControls?: boolean }).isTransformControls)) {
           obj.visible = false;
@@ -34,11 +36,22 @@ export function SnapshotHelper() {
         gl.setSize(o.width, o.height, false);
         cam.aspect = o.width / o.height;
         cam.updateProjectionMatrix();
-        if (o.transparent) {
+        // reference images: render the 3D part on a transparent clear, then compose them behind it
+        const st = useStore.getState();
+        const backdrops = renderBackdrops(st.project, st.lookThrough);
+        if (o.transparent || backdrops.length) {
           scene.background = null;
           gl.setClearAlpha(0);
+        } else if (!scene.background) {
+          scene.background = new Color(BG_COLOR); // the editor shows a reference image through a transparent scene
         }
         gl.render(scene, cam);
+        if (backdrops.length) {
+          const out = document.createElement('canvas');
+          out.width = o.width;
+          out.height = o.height;
+          return composeFrame(gl.domElement, out, backdrops, o.transparent).toDataURL('image/png');
+        }
         return gl.domElement.toDataURL('image/png');
       } finally {
         live.override = null;

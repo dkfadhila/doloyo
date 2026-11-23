@@ -1,6 +1,6 @@
-# Panduan Motion Doll Studio
+# Panduan Doloyo
 
-Studio pose dan animasi 3D di browser. Pilih manekin atau bentuk dasar, atur sendi, susun keyframe, lalu ambil snapshot PNG. Semua berjalan di komputer kamu sendiri; proyek disimpan otomatis di browser.
+Doloyo (Your floppy little motion studio) adalah studio pose dan animasi 3D di browser. Pilih manekin atau bentuk dasar, atur sendi, susun keyframe, lalu ambil snapshot PNG. Semua berjalan di komputer kamu sendiri; proyek disimpan otomatis di browser.
 
 ## Mulai cepat
 
@@ -120,6 +120,22 @@ Kamera render adalah objek terpisah yang bisa dianimasikan dengan key (channel `
 5. Export memakai kamera render (dengan nilai animasi per frame) bila ada; kalau tidak, memakai pandangan editor. Aspek mengikuti resolusi export.
 
 Snapshot cepat (tombol Snapshot) tetap memakai pandangan editor.
+
+## Gambar referensi
+
+Pasang gambar referensi seperti di Blender, dengan tiga cara. Semuanya lokal: gambar disimpan di browser ini (IndexedDB, seperti karakter hasil import), tidak diunggah ke mana pun.
+
+- **Viewport background**: gambar di belakang scene, menempel ke layar. Pilih `Fit` (seluruh gambar terlihat), `Fill` (menutup bingkai, bisa terpotong) atau `Center` (ukuran piksel asli), lalu atur `Opac` (opasitas) dan `Visible`.
+- **Image plane**: bidang bergambar di dalam scene 3D dengan rasio asli gambar. Digeser, diputar, dan diskalakan dengan gizmo seperti bentuk dasar, dan bisa dikeyframe (`K`). Opsi: opasitas, `Double sided`, `Locked` (tidak bisa dipilih di viewport, tetap ada di Outliner), `Always face camera` (selalu menghadap kamera, rotasi diabaikan).
+- **Camera background**: gambar terkunci pada bingkai kamera render. Terlihat saat melihat lewat kamera (`C`) dan ikut di-render. Perlu kamera render (Outliner > **+** > **Render Camera**).
+
+**Menambah gambar:** menu **File > Add reference image...**, Outliner **+** > **Reference image...**, atau seret file gambar ke viewport. Sebuah popover kecil menanyakan mau dipakai sebagai apa. Format: PNG, JPG, WebP (wajib), GIF (frame pertama), SVG; maksimal 20 MB. Background muncul di Outliner pada bagian **Reference images**; klik barisnya untuk mengatur di Inspector (tombol **Remove** menghapusnya). Semua langkah bisa di-undo.
+
+**Include in render:** kalau dicentang (default), gambar ikut di Snapshot, export PNG/PNG sequence/WebM/MP4, dan GLB (image plane menjadi quad bertekstur). Matikan kalau gambar hanya panduan untuk kamu.
+
+**Menyimpan:** file `.mdoll.json` hanya menyimpan id gambar. Kalau gambar tidak ada di browser yang membuka proyek, muncul peringatan dan gambarnya tidak tampil. Saat **Save**, centang **Embed images in the project file** untuk menyisipkan gambar sampai 2 MB ke dalam file supaya bisa dibuka di browser lain; gambar yang lebih besar tetap hanya direferensikan.
+
+**Lewat agent:** tool `image_add` (file lokal lewat `path`), `image_set` dan `image_remove`; lihat `docs/AGENT.md`.
 
 ## Export GLB dan BVH
 
@@ -250,7 +266,8 @@ Di bawah lebar 900 px, panel kiri (Outliner/Animations) dan kanan (Inspector) me
 ## Menyimpan proyek
 
 - Autosave: proyek disimpan otomatis ke IndexedDB browser dan dimuat lagi saat app dibuka.
-- Menu **File**: New, Open `.mdoll.json`, Save `.mdoll.json` (`Ctrl+S`), Import character, Copy Dance, Snapshot, Export.
+- Menu **File**: New, Open `.mdoll.json`, Save `.mdoll.json` (`Ctrl+S`; kalau proyek memakai gambar referensi muncul pilihan untuk menyisipkannya), Import character, Add reference image, Copy Dance, Snapshot, Export.
+- Ekstensi tetap `.mdoll.json` (nama lama Doloyo adalah Motion Doll Studio); file lama tetap bisa dibuka, dan proyek, karakter, serta pengaturan yang tersimpan di browser dipindahkan otomatis saat pertama kali memuat versi baru.
 - File `.mdoll.json` adalah JSON biasa yang bisa dibaca manusia dan agent.
 
 ## Pintasan
@@ -283,12 +300,12 @@ Pintasan dimatikan saat kamu mengetik di kolom angka atau teks.
 Pil **Agent** di pojok kanan atas membuka panel koneksi. Titik hijau berarti terhubung. Semuanya lokal: agent bicara ke server MCP di komputer kamu, server itu bicara ke tab ini lewat WebSocket `127.0.0.1:7777`.
 
 1. Sekali saja, di folder proyek: `npm run mcp:install` lalu `npm run mcp:build`.
-2. Daftarkan ke agent, misalnya Claude Code: `claude mcp add motion-doll -- node <path>/mcp/dist/index.js` (detail di `mcp/README.md`).
-3. Server menampilkan **pairing code** 6 digit (di log stderr, di file `motion-doll-pairing.txt` di folder temp, atau minta agent memanggil `bridge_status`).
+2. Daftarkan ke agent, misalnya Claude Code: `claude mcp add doloyo -- node <path>/mcp/dist/index.js` (detail di `mcp/README.md`).
+3. Server menampilkan **pairing code** 6 digit (di log stderr, di file `doloyo-pairing.txt` di folder temp, atau minta agent memanggil `bridge_status`).
 4. Di panel Agent, masukkan kode lalu klik **Connect**. Kalau koneksi putus, app mencoba menyambung lagi otomatis sampai 3 kali; setelah itu berhenti (supaya konsol browser tidak penuh pesan error) dan tombol **Bridge offline - Retry** muncul di panel. Tombol **Connect** tetap bisa dipakai manual.
 
 **Izin** (dropdown Permissions): Read-only (agent hanya melihat scene dan snapshot), Edit (boleh mengubah, undo, redo), Edit + Render (boleh juga membuat file render). Edit dari agent masuk ke riwayat undo yang sama, jadi `Ctrl+Z` membatalkannya. **Activity** menampilkan 100 panggilan agent terakhir (jam, metode, ringkasan, ok/error).
 
-**Memakai app dari situs (https):** alamat bridge tetap `ws://127.0.0.1:7777`. Chrome dan Edge bisa menampilkan prompt *Private Network Access*: izinkan. Safari memblokir koneksi ini; pakai instalasi lokal (`npm start`). Jalankan server dengan origin situs itu: `node <path>/motion-doll-studio/mcp/dist/index.js --allow-hosted` (untuk situs lain: `--origin https://alamat.situs`).
+**Memakai app dari situs (https):** alamat bridge tetap `ws://127.0.0.1:7777`. Chrome dan Edge bisa menampilkan prompt *Private Network Access*: izinkan. Safari memblokir koneksi ini; pakai instalasi lokal (`npm start`). Jalankan server dengan origin situs itu: `node <path>/mcp/dist/index.js --allow-hosted` (untuk situs lain: `--origin https://alamat.situs`).
 
-Tanpa agent, semua aksi tetap bisa dicoba dari konsol browser: `window.motionDoll.help()` menampilkan daftar perintah.
+Tanpa agent, semua aksi tetap bisa dicoba dari konsol browser: `window.doloyo.help()` menampilkan daftar perintah.

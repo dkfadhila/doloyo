@@ -16,6 +16,7 @@ export function Gizmo() {
   const sel = useStore((s) => s.selection);
   const mode = useStore((s) => s.mode);
   const kind = useStore((s) => s.project.objects.find((o) => o.id === s.selection.object)?.kind);
+  const lockedImage = useStore((s) => !!s.project.objects.find((o) => o.id === s.selection.object)?.image?.locked);
   const ikActive = useStore((s) => s.ikOn && s.ikLimb !== null);
   const looking = useStore((s) => s.lookThrough);
   const [target, setTarget] = useState<Object3D | null>(null);
@@ -25,7 +26,7 @@ export function Gizmo() {
   const name = !sel.object ? null : jointMode ? `${sel.object}:${sel.joint}` : `obj:${sel.object}`;
   let m: Mode = kind === 'camera' ? 'translate' : mode;
   if (jointMode) m = mode === 'translate' && sel.joint === 'hips' ? 'translate' : 'rotate';
-  const hidden = (ikActive && kind === 'mannequin') || (looking && kind === 'camera');
+  const hidden = (ikActive && kind === 'mannequin') || (looking && kind === 'camera') || lockedImage;
 
   useEffect(() => {
     setTarget(name ? scene.getObjectByName(name) ?? null : null);

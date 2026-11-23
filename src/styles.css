@@ -47,6 +47,9 @@ button:disabled, select:disabled { opacity: 0.4; cursor: default; }
 .timeline { grid-column: 1 / -1; }
 .viewport { position: relative; min-width: 0; min-height: 0; background: #1a1c1f; overflow: hidden; }
 .viewport canvas { display: block; }
+.backdrop { position: absolute; inset: 0; pointer-events: none; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.backdrop-img { position: absolute; inset: 0; background-repeat: no-repeat; background-position: center; }
+.backdrop-frame { position: relative; overflow: hidden; flex: none; }
 
 /* top bar */
 .topbar {
@@ -174,6 +177,14 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .nf input { width: 100%; min-width: 0; height: 100%; padding: 0 4px; background: transparent; border: 0; outline: 0; font-size: 11px; text-align: right; }
 .nf.disabled { opacity: 0.4; }
 .nf.disabled .nf-label { cursor: default; }
+
+/* reference images */
+.outliner-sep { padding: 8px 12px 2px; text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; }
+.vec-fields.one { grid-template-columns: minmax(0, 1fr); margin-bottom: 6px; }
+.image-pop { top: 44px; left: 50%; transform: translateX(-50%); width: 300px; max-width: calc(100% - 16px); padding: 8px; z-index: 40; }
+.image-pop-title { padding: 2px 4px 6px; font-weight: 600; display: flex; }
+.menu-item.image-mode { flex-direction: column; align-items: flex-start; height: auto; gap: 0; padding: 5px 8px; }
+.menu-item.image-mode .small { white-space: normal; }
 
 /* viewport overlays */
 .modebar { position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; }

@@ -8,8 +8,39 @@ export interface BezierEasing {
 export type Easing = NamedEasing | BezierEasing;
 /** Named easings (what the UI dropdown offers; a bezier is "custom"). */
 export const EASINGS: NamedEasing[] = ['linear', 'easeIn', 'easeOut', 'easeInOut', 'step'];
-export type ObjectKind = 'mannequin' | 'cube' | 'sphere' | 'cylinder' | 'camera';
-export const OBJECT_KINDS: ObjectKind[] = ['mannequin', 'cube', 'sphere', 'cylinder', 'camera'];
+export type ObjectKind = 'mannequin' | 'cube' | 'sphere' | 'cylinder' | 'camera' | 'image';
+export const OBJECT_KINDS: ObjectKind[] = ['mannequin', 'cube', 'sphere', 'cylinder', 'camera', 'image'];
+
+/** How a background image fills its frame: fit = whole image visible, fill = covers the frame, center = original pixel size. */
+export type ImageFit = 'fit' | 'fill' | 'center';
+export const IMAGE_FITS: ImageFit[] = ['fit', 'fill', 'center'];
+export type ImageMode = 'background' | 'plane' | 'camera';
+export const IMAGE_MODES: ImageMode[] = ['background', 'plane', 'camera'];
+export type BackdropSlot = 'viewport' | 'camera';
+/** Data of an image plane object (kind "image"). The plane is `aspect` m wide and 1 m high before the object scale. */
+export interface ImagePlane {
+  imageId: string;
+  /** width / height of the picture. */
+  aspect: number;
+  opacity: number;
+  doubleSided: boolean;
+  /** Not selectable in the viewport (still listed in the outliner). */
+  locked: boolean;
+  /** Drawn in snapshots, exports and GLB. */
+  inRender: boolean;
+  /** Always turns to face the camera (rotation is ignored). */
+  billboard: boolean;
+}
+/** Image behind the scene: slot "viewport" = screen space, "camera" = locked to the render camera frame. */
+export interface ImageBackdrop {
+  imageId: string;
+  name: string;
+  aspect: number;
+  opacity: number;
+  visible: boolean;
+  inRender: boolean;
+  fit: ImageFit;
+}
 
 export type Limb = 'L_arm' | 'R_arm' | 'L_leg' | 'R_leg';
 export const LIMBS: Limb[] = ['L_arm', 'R_arm', 'L_leg', 'R_leg'];
@@ -84,6 +115,8 @@ export interface SceneObject {
   /** Render camera only: look-at point (meters) and vertical field of view (degrees). `position` is the eye. */
   target: Vec3;
   fov: number;
+  /** Image planes only (kind "image"). */
+  image?: ImagePlane;
 }
 
 /** A joint that must touch the floor in a grounded pose: ball = the joint ball radius, sole = foot height, hand = palm thickness. */
@@ -113,4 +146,8 @@ export interface Project {
   objects: SceneObject[];
   /** User-saved poses (name -> pose). Saved with the project. */
   customPoses: Record<string, PoseData>;
+  /** Reference image behind the viewport (screen space). The picture itself lives in this browser (IndexedDB), by id. */
+  background?: ImageBackdrop;
+  /** Reference image locked to the render camera frame. */
+  cameraBackground?: ImageBackdrop;
 }

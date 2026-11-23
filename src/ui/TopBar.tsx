@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { newProject } from '../core/commands';
 import { EXAMPLES, fetchExample } from '../examples';
 import { missingCharactersNotice } from '../characters/store';
-import { downloadDataUrl, exportProject, importProjectFile } from '../persist';
+import { downloadDataUrl, importProjectFile } from '../persist';
+import { loadProjectImages, missingImagesNotice } from '../images/store';
+import { openImagePicker, requestSave } from './ImageUi';
 import { useStore } from '../store';
 import { takeSnapshot } from '../three/shared';
 import { useRender } from '../render/run';
@@ -110,13 +112,17 @@ export function TopBar({ onGuide }: { onGuide: () => void }) {
       useUi.getState().notify('Could not load the example: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
-  const doSave = () => exportProject(st.getState().project);
+  const doSave = () => requestSave();
   const onOpen = async (f: File | undefined) => {
     if (!f) return;
     try {
       const p = await importProjectFile(f);
       st.getState().setProject(p);
       useUi.getState().notify(missingCharactersNotice(p.objects));
+      void loadProjectImages(p).then((miss) => {
+        const m = missingImagesNotice(p, miss);
+        if (m) useUi.getState().notify([missingCharactersNotice(p.objects), m].filter(Boolean).join(' '));
+      });
     } catch (e) {
       window.alert('Could not open file: ' + (e instanceof Error ? e.message : String(e)));
     }
@@ -140,7 +146,7 @@ export function TopBar({ onGuide }: { onGuide: () => void }) {
       </button>
       <div className="brand">
         <Icon name="logo" size={18} />
-        <span className="label">Motion Doll</span>
+        <span className="label">Doloyo</span>
       </div>
       <Menu
         label="File"
@@ -150,6 +156,7 @@ export function TopBar({ onGuide }: { onGuide: () => void }) {
           { label: 'Save .mdoll.json', hint: 'Ctrl+S', onClick: doSave },
           { label: '', sep: true },
           { label: 'Import character...', hint: '.glb .vrm', onClick: () => charRef.current?.click() },
+          { label: 'Add reference image...', hint: '.png .jpg .webp', onClick: () => openImagePicker() },
           { label: 'Copy Dance (video to animation)...', onClick: () => useUi.getState().setDanceOpen(true) },
           { label: '', sep: true },
           { label: 'Snapshot PNG...', onClick: () => setSnapOpen(true) },

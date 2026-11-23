@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { LIMB_JOINTS } from '../core/ik';
 import { LIMBS } from '../core/types';
-import { exportProject } from '../persist';
+import { requestSave } from './ImageUi';
 import { selectedObject, useStore } from '../store';
 import { FRAME_ALL_EVENT, graphState } from './CurveEditor';
 import { copySelectedKeys, pasteKeys } from './keyActions';
@@ -44,7 +44,7 @@ export function useShortcuts(toggleGuide: (v?: boolean) => void) {
           st.redo();
         } else if (key === 's') {
           e.preventDefault();
-          exportProject(st.project);
+          requestSave();
         } else if (key === 'c' && (st.keySet.length || st.selection.key)) {
           e.preventDefault();
           copySelectedKeys();

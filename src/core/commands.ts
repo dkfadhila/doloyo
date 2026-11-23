@@ -3,8 +3,8 @@ import { applyPins, endWorld, FOOT_LIMB, groundHipsPos, hasPins, LEG_FOOT, LIMB_
 import { channelsFor, evaluateObject, evaluateProject, getChannel, isChannel, parseEasing, setChannel } from './interpolate';
 import { POSES, resolvePose } from './poses';
 import { clampRotation, emptyPose, isJoint, JOINTS, mirrorJointName, mirrorRotation } from './rig';
-import type { BodySpec, Easing, Gender, JointName, Keyframe, Limb, ObjectKind, Pins, Pose, PoseData, Project, SceneObject, Vec3 } from './types';
-import { BODY_PRESETS, BUILTIN_CHARACTER_IDS, DEFAULT_CHARACTER, isCharacterId, MATERIAL_MODES, OBJECT_KINDS, PROCEDURAL_CHARACTER, type MaterialMode } from './types';
+import type { BackdropSlot, BodySpec, Easing, Gender, ImageBackdrop, ImageFit, ImageMode, ImagePlane, JointName, Keyframe, Limb, ObjectKind, Pins, Pose, PoseData, Project, SceneObject, Vec3 } from './types';
+import { BODY_PRESETS, BUILTIN_CHARACTER_IDS, DEFAULT_CHARACTER, IMAGE_FITS, IMAGE_MODES, isCharacterId, MATERIAL_MODES, OBJECT_KINDS, PROCEDURAL_CHARACTER, type MaterialMode } from './types';
 
 export type Target = string | string[];
 
@@ -45,6 +45,20 @@ export const FAMILY: { preset: BodySpec['preset']; gender: Gender; pose?: string
   { preset: 'dewasa', gender: 'f' },
 ];
 
+/** Display options shared by the three image modes. Not every field applies to every mode (see image_set). */
+export interface ImageProps {
+  opacity?: number;
+  /** Backgrounds only. */
+  visible?: boolean;
+  fit?: ImageFit;
+  /** Image planes only. */
+  locked?: boolean;
+  billboard?: boolean;
+  doubleSided?: boolean;
+  /** Plane, background and camera background. */
+  inRender?: boolean;
+}
+
 export type Command =
   | { type: 'object_add'; kind: ObjectKind; name?: string; id?: string; position?: Vec3; character?: string; body?: BodySpec }
   | { type: 'object_set_character'; object: string; character: string; material?: MaterialMode }
@@ -72,6 +86,10 @@ export type Command =
   | { type: 'ik_bake'; object: string; start?: number; end?: number; unpin?: boolean }
   | { type: 'camera_set'; object?: string; position?: Vec3; target?: Vec3; fov?: number }
   | { type: 'scene_preset'; preset: ScenePreset; character?: string; clear?: boolean; body?: BodySpec }
+  | ({ type: 'image_add'; mode: ImageMode; imageId: string; id?: string; name?: string; aspect?: number; position?: Vec3; rotation?: Vec3; scale?: Vec3 } & ImageProps)
+  | ({ type: 'image_set'; object?: string; background?: BackdropSlot; name?: string } & ImageProps)
+  | { type: 'image_remove'; object?: string; background?: BackdropSlot }
+  | { type: 'image_bg_restore'; slot: BackdropSlot; bg: ImageBackdrop | null } // internal
   | { type: 'pins_restore'; object: string; pins: Pins } // internal
   | { type: 'track_restore'; object: string; channel: string; keys: Keyframe[] } // internal
   | { type: 'timeline_set'; fps?: number; duration?: number; loop?: boolean }
@@ -79,7 +97,7 @@ export type Command =
   | { type: 'batch'; commands: Command[] };
 
 /** Commands that exist only as undo inverses; never accept them from outside. */
-export const INTERNAL_COMMANDS = ['object_restore', 'track_restore', 'pose_lib_restore', 'pins_restore', 'body_restore'];
+export const INTERNAL_COMMANDS = ['object_restore', 'track_restore', 'pose_lib_restore', 'pins_restore', 'body_restore', 'image_bg_restore'];
 
 export interface CommandResult {
   project: Project;
@@ -108,6 +126,7 @@ export const KIND_LABEL: Record<ObjectKind, string> = {
   sphere: 'Sphere',
   cylinder: 'Cylinder',
   camera: 'Render Camera',
+  image: 'Image',
 };
 
 export const CAMERA_DEFAULT = { position: [2.8, 1.6, 3.8] as Vec3, target: [0, 0.9, 0] as Vec3, fov: 40 };
@@ -166,10 +185,62 @@ function normalizeBody(out: SceneObject, raw: SceneObject): SceneObject {
   return out;
 }
 
+const num01 = (v: unknown, def: number) => (typeof v === 'number' && isFinite(v) ? Math.min(1, Math.max(0, v)) : def);
+const bool = (v: unknown, def: boolean) => (typeof v === 'boolean' ? v : def);
+const validAspect = (v: unknown): v is number => typeof v === 'number' && isFinite(v) && v > 0.02 && v < 50;
+
+/** Defaults of an image plane. */
+export const IMAGE_PLANE_DEFAULTS = { opacity: 1, doubleSided: true, locked: false, inRender: true, billboard: false };
+
+function cleanImagePlane(raw: unknown): ImagePlane | null {
+  const r = raw as Partial<ImagePlane> | undefined;
+  if (!r || typeof r !== 'object' || typeof r.imageId !== 'string' || !r.imageId) return null;
+  const d = IMAGE_PLANE_DEFAULTS;
+  return {
+    imageId: r.imageId,
+    aspect: validAspect(r.aspect) ? r.aspect : 16 / 9,
+    opacity: num01(r.opacity, d.opacity),
+    doubleSided: bool(r.doubleSided, d.doubleSided),
+    locked: bool(r.locked, d.locked),
+    inRender: bool(r.inRender, d.inRender),
+    billboard: bool(r.billboard, d.billboard),
+  };
+}
+
+function cleanBackdrop(raw: unknown): ImageBackdrop | null {
+  const r = raw as Partial<ImageBackdrop> | undefined;
+  if (!r || typeof r !== 'object' || typeof r.imageId !== 'string' || !r.imageId) return null;
+  return {
+    imageId: r.imageId,
+    name: typeof r.name === 'string' && r.name ? r.name : 'Reference image',
+    aspect: validAspect(r.aspect) ? r.aspect : 16 / 9,
+    opacity: num01(r.opacity, 1),
+    visible: bool(r.visible, true),
+    inRender: bool(r.inRender, true),
+    fit: IMAGE_FITS.includes(r.fit as ImageFit) ? (r.fit as ImageFit) : 'fit',
+  };
+}
+
+function cleanBackdrops(p: Partial<Project>): Partial<Project> {
+  const out: Partial<Project> = {};
+  const bg = cleanBackdrop(p.background);
+  const cb = cleanBackdrop(p.cameraBackground);
+  if (bg) out.background = bg;
+  if (cb) out.cameraBackground = cb;
+  return out;
+}
+
+function normalizeImage(out: SceneObject, raw: SceneObject): SceneObject {
+  const img = raw.kind === 'image' ? cleanImagePlane(raw.image) : null;
+  if (img) out.image = img;
+  else delete out.image;
+  return out;
+}
+
 /** Fill gaps in a loaded project (forward-compat). Throws on garbage. */
 export function normalizeProject(raw: unknown): Project {
   const r = raw as Partial<Project> | null;
-  if (!r || typeof r !== 'object' || !Array.isArray(r.objects)) fail('Not a Motion Doll project');
+  if (!r || typeof r !== 'object' || !Array.isArray(r.objects)) fail('Not a Doloyo project');
   const p = r as Project;
   return {
     version: 1,
@@ -178,7 +249,8 @@ export function normalizeProject(raw: unknown): Project {
     duration: p.duration > 0 ? p.duration : 4,
     loop: !!p.loop,
     time: p.time >= 0 ? p.time : 0,
-    objects: p.objects.map((o) => normalizeBody({
+    ...cleanBackdrops(p),
+    objects: p.objects.filter((o) => o.kind !== 'image' || cleanImagePlane(o.image)).map((o) => normalizeImage(normalizeBody({
       ...createObject(o.kind, o.name ?? 'Object', o.id ?? uid(), o.position ?? [0, 0, 0], PROCEDURAL_CHARACTER),
       ...o,
       character: typeof o.character === 'string' && o.character ? o.character : PROCEDURAL_CHARACTER,
@@ -188,7 +260,7 @@ export function normalizeProject(raw: unknown): Project {
       pins: cleanPins(o.pins),
       target: Array.isArray(o.target) && o.target.length === 3 && o.target.every((n) => typeof n === 'number') ? o.target : [...CAMERA_DEFAULT.target],
       fov: typeof o.fov === 'number' && o.fov > 0 && o.fov < 180 ? o.fov : CAMERA_DEFAULT.fov,
-    }, o)),
+    }, o), o)),
     customPoses: p.customPoses && typeof p.customPoses === 'object' ? { ...p.customPoses } : {},
   };
 }
@@ -239,6 +311,7 @@ const fullPoseCmd = (o: SceneObject): Command => ({
 
 /** Resolve refs to ids and times to explicit snapped seconds so replay is deterministic. */
 function normalize(p: Project, c: Command): Command {
+  if (c.type === 'image_add' || c.type === 'image_set' || c.type === 'image_remove' || c.type === 'image_bg_restore') return c;
   if (c.type === 'batch' || c.type === 'object_add' || c.type === 'object_restore' || c.type === 'timeline_set' || c.type === 'playhead_seek') return c;
   if (c.type === 'pose_delete' || c.type === 'pose_lib_restore') return c;
   if (c.type === 'track_restore' || c.type === 'pins_restore') return c;
@@ -401,6 +474,33 @@ export function copyKeys(p: Project, refs: KeyRef[]): { kind: ObjectKind; clip: 
 }
 const family = (k: ObjectKind) => (k === 'mannequin' ? 'm' : k === 'camera' ? 'c' : 's');
 
+const checkSlot = (v: unknown): BackdropSlot => (v === 'viewport' || v === 'camera' ? v : fail('background must be "viewport" or "camera"'));
+
+type PropSet = Partial<Record<'opacity' | 'visible' | 'fit' | 'locked' | 'billboard' | 'doubleSided' | 'inRender', unknown>>;
+const PLANE_PROPS = ['opacity', 'locked', 'billboard', 'doubleSided', 'inRender'] as const;
+const BACKDROP_PROPS = ['opacity', 'visible', 'fit', 'inRender'] as const;
+
+/** Validate image display options for one target kind; options that do not apply to it are an error (no silent ignoring). */
+function checkImageProps(c: PropSet, target: 'plane' | 'backdrop'): PropSet {
+  const allowed: readonly string[] = target === 'plane' ? PLANE_PROPS : BACKDROP_PROPS;
+  const out: PropSet = {};
+  for (const k of ['opacity', 'visible', 'fit', 'locked', 'billboard', 'doubleSided', 'inRender'] as const) {
+    const v = c[k];
+    if (v === undefined) continue;
+    if (!allowed.includes(k)) fail(`"${k}" does not apply to ${target === 'plane' ? 'image planes' : 'background images'} (allowed: ${allowed.join(', ')})`);
+    if (k === 'opacity') {
+      if (typeof v !== 'number' || !isFinite(v) || v < 0 || v > 1) fail('opacity must be a number 0..1');
+    } else if (k === 'fit') {
+      if (!IMAGE_FITS.includes(v as ImageFit)) fail(`fit must be one of ${IMAGE_FITS.join(', ')}`);
+    } else if (typeof v !== 'boolean') fail(`${k} must be true or false`);
+    out[k] = v;
+  }
+  return out;
+}
+const pickPlane = (p: PropSet) => Object.fromEntries(Object.entries(p).filter(([k]) => (PLANE_PROPS as readonly string[]).includes(k))) as Partial<ImagePlane>;
+const pickBackdrop = (p: PropSet) => Object.fromEntries(Object.entries(p).filter(([k]) => (BACKDROP_PROPS as readonly string[]).includes(k))) as Partial<ImageBackdrop>;
+const bgKey = (slot: BackdropSlot) => (slot === 'camera' ? 'cameraBackground' : 'background');
+
 function exec(p: Project, c: Command): CommandResult {
   switch (c.type) {
     case 'batch': {
@@ -418,6 +518,7 @@ function exec(p: Project, c: Command): CommandResult {
 
     case 'object_add': {
       if (!OBJECT_KINDS.includes(c.kind)) fail(`Unknown kind: ${c.kind}`);
+      if (c.kind === 'image') fail('Add image planes with image_add (mode "plane")');
       const id = c.id ?? uid();
       let name = c.name;
       if (!name && c.kind === 'camera') name = 'Render Camera';
@@ -884,6 +985,86 @@ function exec(p: Project, c: Command): CommandResult {
       };
     }
 
+    case 'image_add': {
+      if (!IMAGE_MODES.includes(c.mode)) fail(`mode must be one of ${IMAGE_MODES.join(', ')}`);
+      if (typeof c.imageId !== 'string' || !c.imageId) fail('imageId is required (the image must be stored in this browser)');
+      const aspect = c.aspect === undefined ? 16 / 9 : validAspect(c.aspect) ? c.aspect : fail('aspect must be width / height of the picture (a positive number)');
+      const props = checkImageProps(c, c.mode === 'plane' ? 'plane' : 'backdrop');
+      if (c.mode === 'plane') {
+        const id = c.id ?? uid();
+        let name = c.name?.trim();
+        if (!name) {
+          let n = p.objects.filter((o) => o.kind === 'image').length + 1;
+          while (p.objects.some((o) => o.name === `${KIND_LABEL.image} ${n}`)) n++;
+          name = `${KIND_LABEL.image} ${n}`;
+        }
+        const obj = createObject('image', name, id, c.position ? vec3(c.position, 'position') : [0, 0.9, -1.2]);
+        obj.scale = c.scale ? vec3(c.scale, 'scale') : [1.6, 1.6, 1.6];
+        if (c.rotation) obj.rotation = vec3(c.rotation, 'rotation');
+        obj.image = { imageId: c.imageId, aspect, ...IMAGE_PLANE_DEFAULTS, ...pickPlane(props) };
+        return { project: { ...p, objects: [...p.objects, obj] }, inverse: { type: 'object_remove', object: id }, applied: { ...c, id, name, aspect } };
+      }
+      const slot: BackdropSlot = c.mode === 'camera' ? 'camera' : 'viewport';
+      const key = bgKey(slot);
+      const bg: ImageBackdrop = {
+        imageId: c.imageId,
+        name: c.name?.trim() || 'Reference image',
+        aspect,
+        opacity: 1,
+        visible: true,
+        inRender: true,
+        fit: slot === 'camera' ? 'fill' : 'fit',
+        ...pickBackdrop(props),
+      };
+      const old = p[key];
+      return { project: { ...p, [key]: bg }, inverse: { type: 'image_bg_restore', slot, bg: old ? { ...old } : null }, applied: { ...c, aspect } };
+    }
+
+    case 'image_set': {
+      if (c.background !== undefined) {
+        const slot = checkSlot(c.background);
+        const key = bgKey(slot);
+        const cur = p[key] ?? fail(`There is no ${slot} background image (add one with image_add)`);
+        const props = checkImageProps(c, 'backdrop');
+        const next: ImageBackdrop = { ...cur, ...pickBackdrop(props) };
+        if (c.name !== undefined) next.name = String(c.name).trim() || cur.name;
+        return { project: { ...p, [key]: next }, inverse: { type: 'image_bg_restore', slot, bg: { ...cur } }, applied: c };
+      }
+      if (c.object === undefined) fail('image_set needs "object" (an image plane id or name) or "background" ("viewport" or "camera")');
+      const o = findObject(p, c.object as string);
+      if (o.kind !== 'image' || !o.image) fail(`${o.name} is not an image plane (use background: "viewport" | "camera" for backgrounds)`);
+      const props = checkImageProps(c, 'plane');
+      const prev = { ...(o.image as ImagePlane) };
+      const next: SceneObject = { ...o, image: { ...prev, ...pickPlane(props) } };
+      if (c.name !== undefined) next.name = String(c.name).trim() || o.name;
+      const inv: Command = { type: 'image_set', object: o.id, name: o.name, opacity: prev.opacity, locked: prev.locked, billboard: prev.billboard, doubleSided: prev.doubleSided, inRender: prev.inRender };
+      return { project: putObject(p, next), inverse: inv, applied: { ...c, object: o.id } };
+    }
+
+    case 'image_remove': {
+      if (c.background !== undefined) {
+        const slot = checkSlot(c.background);
+        const key = bgKey(slot);
+        const cur = p[key] ?? fail(`There is no ${slot} background image`);
+        const next = { ...p };
+        delete next[key];
+        return { project: next, inverse: { type: 'image_bg_restore', slot, bg: { ...cur } }, applied: c };
+      }
+      if (c.object === undefined) fail('image_remove needs "object" (an image plane id or name) or "background" ("viewport" or "camera")');
+      const o = findObject(p, c.object as string);
+      if (o.kind !== 'image') fail(`${o.name} is not an image plane`);
+      return { project: { ...p, objects: p.objects.filter((x) => x !== o) }, inverse: { type: 'object_restore', object: o, index: p.objects.indexOf(o) }, applied: { ...c, object: o.id } };
+    }
+
+    case 'image_bg_restore': {
+      const key = bgKey(c.slot);
+      const cur = p[key];
+      const next = { ...p };
+      if (c.bg) next[key] = { ...c.bg };
+      else delete next[key];
+      return { project: next, inverse: { type: 'image_bg_restore', slot: c.slot, bg: cur ? { ...cur } : null }, applied: c };
+    }
+
     case 'timeline_set': {
       const inv: any = { type: 'timeline_set' };
       const next = { ...p };
@@ -909,7 +1090,7 @@ function exec(p: Project, c: Command): CommandResult {
   }
 }
 
-export const COMMAND_HELP = `Motion Doll command API. dispatch({type, ...args}). Objects are referenced by id or name. Rotations are Euler XYZ degrees. Times are seconds (or use frame).
+export const COMMAND_HELP = `Doloyo command API. dispatch({type, ...args}). Objects are referenced by id or name. Rotations are Euler XYZ degrees. Times are seconds (or use frame).
 object_add {kind: mannequin|cube|sphere|cylinder|camera, name?, position?, character?, body?: {preset, heightScale?, gender?}}
 object_set_character {object, character: doll-procedural|mannequin-f|mannequin-m|superhero-m|superhero-f|custom:<id>, material?: doll|original}
 object_set_body {object, preset?: kecil|pendek|remaja|dewasa, heightScale?: 0.9..1.1, gender?: m|f}   (body size; kecil = baby 0.75 m, pendek = child 1.20 m, remaja = teen 1.62 m, dewasa = adult; superheroes: remaja/dewasa only)
@@ -933,6 +1114,9 @@ ik_pin {object, limb: L_leg|R_leg|L_foot|R_foot, pinned: boolean, position?: [x,
 ik_bake {object, start?, end?, unpin?}   (key the pinned legs for every frame, then remove the pins)
 camera_set {object?, position?, target?, fov?}   (the render camera; created when missing; keyable like other objects)
 scene_preset {preset: duo|trio|group5|keluarga, character?, clear?, body?}   (adds dolls in an arc formation; mixed F/M by default; keluarga = 2 adults, 1 anak, 1 bayi sitting)
+image_add {mode: background|plane|camera, imageId, name?, aspect?, opacity?, inRender?, fit?, visible?, locked?, billboard?, doubleSided?, position?, rotation?, scale?}   (reference image: background = screen space behind the scene, plane = textured object in the scene, camera = locked to the render camera frame; the picture itself is stored in this browser, by id)
+image_set {object?|background?: viewport|camera, name?, opacity?, inRender?, visible?, fit?, locked?, billboard?, doubleSided?}   (plane: opacity, locked, billboard, doubleSided, inRender; background: opacity, visible, fit, inRender)
+image_remove {object?|background?: viewport|camera}
 timeline_set {fps?, duration?, loop?}
 playhead_seek {time?|frame?}
 batch {commands: [...]}`;

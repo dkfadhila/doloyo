@@ -11,6 +11,8 @@ const RENDER_TIMEOUT_MS = 10 * 60 * 1000;
 const MOCAP_TIMEOUT_MS = 30 * 60 * 1000;
 const UPLOAD_CHUNK = 3_000_000; // raw bytes per bridge call (4 MB base64)
 const MAX_VIDEO_BYTES = 600 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const IMAGE_MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml' };
 const VIDEO_MIME: Record<string, string> = { '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm', '.mkv': 'video/x-matroska' };
 
 const JOINTS = [
@@ -44,6 +46,9 @@ const bodySpec = z
     gender: z.enum(['m', 'f']).optional().describe('Only a subtle proportion difference (shoulder width) and the base character; never chest or hip shape. Default: from the character (mannequin-f / superhero-f = f).'),
   })
   .describe('Body size of a mannequin.');
+const imageMode = z.enum(['background', 'plane', 'camera']).describe('background = screen-space image behind the viewport, plane = textured plane object in the 3D scene, camera = image locked to the render camera frame.');
+const imageSlot = z.enum(['viewport', 'camera']).describe('Which background: the viewport background or the render-camera background.');
+const imageFit = z.enum(['fit', 'fill', 'center']).describe('Backgrounds: fit = whole picture visible, fill = covers the frame (cropped), center = original pixel size.');
 const keyRef = z.object({ object: objectRef, target, time, frame });
 
 type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
@@ -72,7 +77,7 @@ function safeStem(raw: unknown, ext: string): string {
   let s = basename(String(raw ?? '').replace(/\\/g, '/'));
   if (s.toLowerCase().endsWith('.' + ext)) s = s.slice(0, -(ext.length + 1));
   s = s.replace(/[<>:"|?*\u0000-\u001f]/g, '_').replace(/^[. ]+|[. ]+$/g, '').slice(0, 120);
-  return s || 'motion-doll';
+  return s || 'doloyo';
 }
 
 /** Writes without ever replacing an existing file; returns the path used. */
@@ -87,6 +92,23 @@ function writeNew(dir: string, stem: string, ext: string, bytes: Buffer): string
     }
   }
   throw new Error('Too many files with the same name');
+}
+
+/** Read a local file and stream it to the browser in chunks (same transfer as video uploads). Returns the upload id. */
+async function uploadFile(bridge: Bridge, file: string, size: number): Promise<string> {
+  const uploadId = randomBytes(8).toString('hex');
+  const total = Math.ceil(size / UPLOAD_CHUNK);
+  const fd = openSync(file, 'r');
+  try {
+    const buf = Buffer.alloc(UPLOAD_CHUNK);
+    for (let seq = 0; seq < total; seq++) {
+      const n = readSync(fd, buf, 0, UPLOAD_CHUNK, seq * UPLOAD_CHUNK);
+      await bridge.call('mocap_upload', { uploadId, seq, total, data: buf.subarray(0, n).toString('base64') }, 60_000);
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return uploadId;
 }
 
 function stamp(): string {
@@ -126,7 +148,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
     'bridge_status',
     {
       description:
-        'Report whether the Motion Doll Studio browser app is connected to this MCP server. If not connected, tell the user the pairingCode and ask them to open the app, open the Agent panel and click Connect.',
+        'Report whether the Doloyo browser app is connected to this MCP server. If not connected, tell the user the pairingCode and ask them to open the app, open the Agent panel and click Connect.',
     },
     guard(async () =>
       text(
@@ -145,7 +167,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
     'guide_read',
     {
       description:
-        'Read the Motion Doll agent guide (command semantics, joint axes, keyframe workflow, examples). Read it once before animating.',
+        'Read the Doloyo agent guide (command semantics, joint axes, keyframe workflow, examples). Read it once before animating.',
     },
     guard(async () => text(readGuide())),
   );
@@ -216,6 +238,67 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
     },
   );
   command('object_remove', 'Remove an object (undoable).', { object: objectRef });
+
+  // ---- reference images ----
+
+  server.registerTool(
+    'image_add',
+    {
+      description:
+        'Add a reference image from a LOCAL file (undoable). The MCP server reads the file and streams it to the browser, which stores it (IndexedDB, in that browser only; no URLs). Modes: "background" = screen-space picture behind the viewport, "plane" = textured plane object in the 3D scene (transform it with object_transform, key it like a shape), "camera" = picture locked to the render camera frame (visible when looking through the camera; composited in renders). Display options: opacity 0..1; inRender (draw it in snapshots, exports and GLB; default true); backgrounds: fit, visible; planes: locked (not selectable in the viewport), billboard (always faces the camera), doubleSided. A plane is placed 1.2 m behind the origin, 1.6 m high by default (position, rotation, scale override). The reply lists created (the plane id) for mode "plane". Adding a background replaces the previous one of that slot. Needs "Edit" permission.',
+      inputSchema: {
+        path: z.string().min(1).optional().describe('Absolute path of a png, jpg, webp, gif (first frame) or svg file on the machine running this MCP server, up to 20 MB.'),
+        imageId: z.string().min(1).optional().describe('Id of a picture already stored in the browser (alternative to path).'),
+        mode: imageMode,
+        name: z.string().optional(),
+        opacity: z.number().min(0).max(1).optional(),
+        inRender: z.boolean().optional(),
+        fit: imageFit.optional(),
+        visible: z.boolean().optional().describe('Backgrounds only.'),
+        locked: z.boolean().optional().describe('Planes only.'),
+        billboard: z.boolean().optional().describe('Planes only: always face the camera (rotation is ignored).'),
+        doubleSided: z.boolean().optional().describe('Planes only (default true).'),
+        position: vec3.optional().describe('Planes only.'),
+        rotation: vec3.optional().describe('Planes only, degrees.'),
+        scale: vec3.optional().describe('Planes only: the plane is aspect x 1 m before the scale (default scale [1.6,1.6,1.6]).'),
+      },
+    },
+    guard(async (args: { path?: string; imageId?: string; mode: string } & Record<string, unknown>) => {
+      const { path, ...params } = args;
+      if ((path === undefined) === (params.imageId === undefined)) throw new Error('Give exactly one of path (a local file) or imageId');
+      if (path === undefined) return forward('dispatch', { type: 'image_add', ...params });
+      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(path)) throw new Error('Only local files are supported (no URLs). Download the image first and pass its absolute path.');
+      if (!isAbsolute(path)) throw new Error('path must be an absolute path');
+      const file = resolve(path);
+      if (!existsSync(file)) throw new Error(`File not found: ${file}`);
+      const mime = IMAGE_MIME[extname(file).toLowerCase()];
+      if (!mime) throw new Error(`Unsupported image type "${extname(file)}" (use png, jpg, webp, gif or svg)`);
+      const size = statSync(file).size;
+      if (size === 0 || size > MAX_IMAGE_BYTES) throw new Error(`Image must be between 1 byte and ${MAX_IMAGE_BYTES / 1048576} MB (got ${size} bytes)`);
+      const uploadId = await uploadFile(bridge, file, size);
+      return forward('dispatch', { type: 'image_add', ...params, uploadId, mime, filename: basename(file) });
+    }) as never,
+  );
+  command(
+    'image_set',
+    'Change a reference image (undoable). Target a plane with object (id or name), or a background with background "viewport" | "camera". Planes accept opacity, locked, billboard, doubleSided, inRender, name; backgrounds accept opacity, visible, fit, inRender, name. Options that do not apply to the target are an error. Move, rotate and scale planes with object_transform.',
+    {
+      object: objectRef.optional().describe('Image plane id or name.'),
+      background: imageSlot.optional(),
+      name: z.string().optional(),
+      opacity: z.number().min(0).max(1).optional(),
+      inRender: z.boolean().optional().describe('Include in snapshots, exports and GLB.'),
+      visible: z.boolean().optional().describe('Backgrounds only.'),
+      fit: imageFit.optional(),
+      locked: z.boolean().optional().describe('Planes only: not selectable in the viewport.'),
+      billboard: z.boolean().optional().describe('Planes only: always face the camera.'),
+      doubleSided: z.boolean().optional().describe('Planes only.'),
+    },
+  );
+  command('image_remove', 'Remove an image plane (object) or a background (background "viewport" | "camera"). Undoable. The picture stays stored in the browser.', {
+    object: objectRef.optional().describe('Image plane id or name.'),
+    background: imageSlot.optional(),
+  });
   command(
     'object_transform',
     'Set an object transform and/or rename it. Rotation is Euler XYZ in degrees, position in meters (Y up), the character faces +Z. Only the given fields change. Edits are lost on the next playhead move if that channel has keys; add a key afterwards (key_add).',
@@ -428,18 +511,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
       if (!mime) throw new Error(`Unsupported video type "${extname(file)}" (use mp4, webm or mov)`);
       const size = statSync(file).size;
       if (size === 0 || size > MAX_VIDEO_BYTES) throw new Error(`Video must be between 1 byte and ${MAX_VIDEO_BYTES / 1048576} MB (got ${size} bytes)`);
-      const uploadId = randomBytes(8).toString('hex');
-      const total = Math.ceil(size / UPLOAD_CHUNK);
-      const fd = openSync(file, 'r');
-      try {
-        const buf = Buffer.alloc(UPLOAD_CHUNK);
-        for (let seq = 0; seq < total; seq++) {
-          const n = readSync(fd, buf, 0, UPLOAD_CHUNK, seq * UPLOAD_CHUNK);
-          await bridge.call('mocap_upload', { uploadId, seq, total, data: buf.subarray(0, n).toString('base64') }, 60_000);
-        }
-      } finally {
-        closeSync(fd);
-      }
+      const uploadId = await uploadFile(bridge, file, size);
       return forward('mocap_from_video', { ...params, uploadId, mime }, MOCAP_TIMEOUT_MS);
     }) as never,
   );
@@ -450,7 +522,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
     'render_export',
     {
       description:
-        'Render/export locally and save the file on the machine running this MCP server; returns the absolute path. Needs "Edit + Render" permission in the app. Formats: png (current frame), png_seq (zip of PNG frames for the whole duration), webm, mp4 (needs WebCodecs in the browser; otherwise use png_seq), glb (animated glTF binary for Blender/Unity/Unreal: all mannequins and shapes, or the ones in "objects", baked at fps, plus the render camera), bvh (17-joint motion of the first listed/selected mannequin), project (.mdoll.json). If a render camera exists, image/video exports use it (animated); otherwise the current editor view. Default size 1280x720; fps defaults to the project fps. Long renders can take minutes.',
+        'Render/export locally and save the file on the machine running this MCP server; returns the absolute path. Needs "Edit + Render" permission in the app. Formats: png (current frame), png_seq (zip of PNG frames for the whole duration), webm, mp4 (needs WebCodecs in the browser; otherwise use png_seq), glb (animated glTF binary for Blender/Unity/Unreal: all mannequins and shapes, or the ones in "objects", baked at fps, plus the render camera), bvh (17-joint motion of the first listed/selected mannequin), project (.mdoll.json). If a render camera exists, image/video exports use it (animated); otherwise the current editor view. Reference images and image planes are drawn when their inRender option is on. Default size 1280x720; fps defaults to the project fps. Long renders can take minutes.',
       inputSchema: {
         format: z.enum(['png', 'png_seq', 'webm', 'mp4', 'glb', 'bvh', 'project']),
         width: z.number().int().min(16).max(7680).optional(),

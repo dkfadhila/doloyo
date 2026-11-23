@@ -9,16 +9,22 @@
 import {
   AnimationClip,
   BoxGeometry,
+  CanvasTexture,
   CylinderGeometry,
+  DoubleSide,
+  FrontSide,
   Group,
   Matrix4,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   Object3D,
   PerspectiveCamera,
+  PlaneGeometry,
   Quaternion,
   QuaternionKeyframeTrack,
   Scene,
+  SRGBColorSpace,
   SphereGeometry,
   Vector3,
   VectorKeyframeTrack,
@@ -55,6 +61,8 @@ export interface GlbBuildOptions {
   aspect: number;
   /** Provide a skinned rig for objects whose character is a model file; return null to fall back to the procedural doll. */
   loadSkin?: (o: SceneObject) => Promise<SkinRig | null>;
+  /** Pixels of a reference image (image planes become textured quads); return null when unavailable (the quad is then untextured). */
+  loadImage?: (imageId: string) => Promise<CanvasImageSource | null>;
 }
 
 export interface GlbBuild {
@@ -122,7 +130,7 @@ export async function buildGlbScene(opt: GlbBuildOptions): Promise<GlbBuild> {
   const find = (id: string, i: number) => samples[i].objects.find((o) => o.id === id)!;
 
   const scene = new Scene();
-  scene.name = 'MotionDoll';
+  scene.name = 'Doloyo';
   const ts = new TrackSet(times.map((t) => Math.round(t * 1e6) / 1e6));
   const disposers: (() => void)[] = [];
   const dollMat = new MeshStandardMaterial({ color: BODY_HEX, roughness: 0.85, metalness: 0, name: 'Doll' });
@@ -147,6 +155,27 @@ export async function buildGlbScene(opt: GlbBuildOptions): Promise<GlbBuild> {
     ts.vec(holder, 'position', pos);
     ts.quat(holder, rot);
     ts.vec(holder, 'scale', scl);
+
+    if (src.kind === 'image' && src.image) {
+      const im = src.image;
+      let map: CanvasTexture | null = null;
+      const pixels = opt.loadImage ? await opt.loadImage(im.imageId) : null;
+      if (pixels) {
+        map = new CanvasTexture(pixels as HTMLCanvasElement);
+        map.colorSpace = SRGBColorSpace;
+        map.name = `${base}_image`;
+      }
+      // quad: aspect m wide, 1 m high, scaled by the object scale; unlit so the picture keeps its colours
+      const mat = new MeshBasicMaterial({ color: 0xffffff, map, transparent: true, opacity: im.opacity, side: im.doubleSided ? DoubleSide : FrontSide, name: `${base}_material` });
+      disposers.push(() => {
+        mat.dispose();
+        map?.dispose();
+      });
+      const quad = new Mesh(new PlaneGeometry(im.aspect, 1), mat);
+      quad.name = `${base}_mesh`;
+      holder.add(quad);
+      continue;
+    }
 
     if (src.kind !== 'mannequin') {
       const geo = src.kind === 'cube' ? 'box' : src.kind;
@@ -252,7 +281,7 @@ export async function buildGlbScene(opt: GlbBuildOptions): Promise<GlbBuild> {
   }
 
   const duration = n > 1 ? times[n - 1] : 0;
-  const clip = new AnimationClip('MotionDoll', duration, ts.tracks);
+  const clip = new AnimationClip('Doloyo', duration, ts.tracks);
   return {
     scene,
     clip,

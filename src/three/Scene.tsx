@@ -4,9 +4,11 @@ import { useEffect } from 'react';
 import { MOUSE } from 'three';
 import { profileOf } from '../core/body';
 import { useStore } from '../store';
+import { useBackdropActive } from './Backdrop';
 import { CameraObject, ViewCamera } from './CameraObject';
 import { Floor } from './Floor';
 import { Gizmo } from './Gizmo';
+import { ImagePlane } from './ImagePlane';
 import { IkHandles } from './IkHandles';
 import { Lights } from './Lights';
 import { Mannequin, OnionSkin } from './Mannequin';
@@ -24,6 +26,7 @@ function Objects() {
         .map((e) => {
           const [id, kind] = e.split(':');
           if (kind === 'camera') return <CameraObject key={id} id={id} />;
+          if (kind === 'image') return <ImagePlane key={id} id={id} />;
           return kind === 'mannequin' ? <Mannequin key={id} id={id} /> : <Shape key={id} id={id} kind={kind as 'cube'} />;
         })}
     </>
@@ -46,6 +49,12 @@ function FocusRig() {
   return null;
 }
 
+/** Dark scene colour; dropped while a reference image shows through from behind the canvas. */
+function SceneBackground() {
+  const behind = useBackdropActive();
+  return behind ? null : <color attach="background" args={['#1A1C1F']} />;
+}
+
 export function Scene() {
   return (
     <Canvas
@@ -59,7 +68,7 @@ export function Scene() {
         useStore.getState().select(null);
       }}
     >
-      <color attach="background" args={['#1A1C1F']} />
+      <SceneBackground />
       <Lights />
       <Floor />
       <Objects />

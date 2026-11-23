@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0 (reference images, renamed to Doloyo)
+
+- **Doloyo.** The product is now called Doloyo ("Your floppy little motion studio."): app and tab title, top bar, About, docs, README (English and Indonesian). Packages: `doloyo` (app) and `doloyo-mcp` (bins `doloyo-mcp` and the compatibility alias `motion-doll-mcp`), MCP server name `doloyo`, `window.doloyo`, GitHub `dkfadhila/doloyo`, web https://doloyo.vercel.app.
+- **Nothing is lost by the rename.** The first load copies the old IndexedDB data (project autosave in `motion-doll`, imported characters in `motion-doll-characters`) into the new `doloyo` databases and keeps the old ones; the old localStorage and sessionStorage keys are still read; `.mdoll.json` files open as before and keep that extension; `window.motionDoll` is an alias of `window.doloyo`; the `MOTION_DOLL_PORT` and `MOTION_DOLL_ORIGINS` environment variables work next to `DOLOYO_PORT` and `DOLOYO_ORIGINS`; the pairing code is written to `doloyo-pairing.txt` and still to `motion-doll-pairing.txt`; `--allow-hosted` now also allows `https://doloyo.vercel.app` and `https://doloyo.tirtavex.tech` (the two former hosts stay).
+- **Reference images**, three modes (png, jpg, webp, gif first frame, svg; stored in IndexedDB like imported characters, referenced by id in the project file, with a warning when missing; "Embed images" on save packs images up to 2 MB as data URLs):
+  - viewport background (screen space; fit, fill or center; opacity; visible; include in render),
+  - image plane object (`kind: "image"`; textured plane with the right aspect; gizmo move, rotate, scale and keys like a shape; opacity, double sided, lock, include in render, always face camera),
+  - render camera background (locked to the camera frame, shown when looking through the camera, composited in exports).
+- Add via File > Add reference image..., the outliner + menu, or by dropping a file on the viewport (a small popover asks which mode). Backgrounds are listed in the outliner and edited in the inspector.
+- Commands `image_add`, `image_set`, `image_remove` (undoable, also inside `batch`) and MCP tools of the same names; `image_add` reads a local file (absolute path, up to 20 MB, image extensions, no URLs) and streams it to the browser like Copy Dance video uploads. `scene_get` lists `backgrounds` and the image options of planes.
+- Snapshots, PNG, PNG sequence, WebM and MP4 exports and GLB honor "include in render" (image planes are textured quads in GLB).
+- `AGENTS.md`: a step-by-step tutorial for AI agents (setup, pairing, rules, five worked examples with exact tool calls, troubleshooting); `scripts/agents-md.test.ts` checks every tool call in it against the registered MCP tools and their schemas.
+- README rewritten with screenshots rendered by the real app (`docs/img/*.webp`) and a "Why Doloyo?" comparison; Indonesian README (`README.id.md`).
+
 ## 0.5.0 (body sizes)
 
 - Body sizes for mannequins: Bayi / Kecil (baby, about 12 months, 0.75 m), Anak (child, about 6-7 years, 1.20 m), Remaja (teenager, 1.62 m, F 1.58 m) and Dewasa (adult, the original look), for male and female, plus a +-10% height fine-tune per object.

@@ -41,7 +41,7 @@ Langkah pertama: klik sebuah sendi, seret cincinnya untuk memutar (R), geser pla
 
 ### Karakter dan ukuran tubuh
 
-<img src="docs/img/characters.webp" alt="Delapan manekin berdampingan: bayi, anak, remaja, dan dewasa, cowok dan cewek" width="100%">
+<img src="docs/img/characters.id.webp" alt="Delapan manekin berdampingan: bayi, anak, remaja, dan dewasa, cowok dan cewek" width="100%">
 
 *Delapan varian tubuh bawaan: Bayi, Anak, Remaja, dan Dewasa, masing-masing cowok dan cewek. Anak-anak adalah manekin seni yang netral; yang berubah hanya proporsinya. IK, pin kaki, dan export mengikuti ukuran tubuh.*
 
@@ -157,23 +157,24 @@ Doloyo berlisensi MIT, lihat [LICENSE](LICENSE). Karakter dan animasi oleh [Quat
 
 ## Kenapa Doloyo?
 
-Perbandingan yang jujur. Doloyo adalah alat posing dan keyframe yang kecil dan fokus; yang lain lebih besar atau berbeda jenis. Tanda strip berarti "tidak dibahas di sini"; cek situs masing-masing produk untuk rinciannya.
+Jawaban jujur: nggak ada alasan serius. Doloyo itu proyek iseng yang dibuat buat senang-senang, dan memang kelihatan begitu.
 
-| | Jalan di browser | Instalasi | Model harga | Editor keyframe | Mocap video | Kontrol agent AI | Catatan |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| **Doloyo** | Ya | Tidak perlu untuk app web; clone untuk menjalankan lokal atau memakai server agent | Gratis, berlisensi MIT | Ya (kurva, easing bezier, IK, pin kaki) | Ya, MediaPipe di komputer kamu (kualitas webcam) | Ya, server MCP | Rig humanoid 17 sendi; gambar referensi; ekspor PNG, video, GLB, BVH |
-| **Blender** | Tidak | Instal desktop | Gratis dan open source | Ya (animasi) | - | - | Suite 3D lengkap (modeling, animasi, rendering); kurva belajar curam kalau hanya perlu posing |
-| **Cascadeur** | Tidak | Aplikasi desktop | Freemium; format ekspor berbayar | Ya | - | - | Animasi keyframe dengan bantuan fisika dan AI; tier gratis hanya mengekspor format .casc miliknya, ekspor FBX/DAE/USD butuh paket berbayar |
-| **Magic Poser** | Ada versi web (juga aplikasi mobile dan tablet) | Aplikasi mobile/tablet, atau web | Freemium; fitur Pro berbayar | Fokus pada pose diam | - | - | Posing untuk referensi menggambar |
-| **Mixamo** | Ya (layanan web) | Tidak perlu (login Adobe ID) | Gratis dengan Adobe ID | Bukan editor keyframe | - | - | Auto-rigging dan library animasi besar; Adobe bisa mengubah ketentuan |
+Doloyo bukan alat terbaik untuk apa pun. Kalau butuh kerja animasi yang serius, pakai software 3D atau animasi yang beneran; jauh lebih lengkap dan jauh lebih rapi. Doloyo cocok kalau kamu cuma mau naruh beberapa boneka loyo di layar, bikin mereka joget, dan mungkin nyuruh agent AI ngatur-ngatur mereka, semuanya di satu tab browser.
 
-Perbandingan per November 2026; cek situs masing-masing produk untuk rincian terbaru.
+Yang kamu dapat:
 
-### Kekurangan Doloyo
+- Jalan di browser, tidak perlu instal untuk app web, render di komputer sendiri.
+- Keyframe, IK, curve editor, library animasi, dan Copy Dance dari video.
+- Server MCP bawaan supaya agent bisa pose dan animasi buat kamu.
 
-- Bukan suite 3D lengkap: tidak ada modeling atau sculpting, dan tidak ada engine render seperti Cycles.
-- Rig-nya satu humanoid dengan 17 sendi: tanpa jari dan tanpa wajah.
-- Mocap video berkualitas webcam: kedalaman diperkirakan, dan gerakan cepat atau tertutup menurunkan hasilnya.
-- Tanpa fisika.
-- Koneksi agent dari app hosted diblokir di Safari (pakai app lokal di sana).
-- Karakter hasil import dan gambar referensi tetap berada di browser yang mengimpornya.
+Yang juga kamu dapat (bagian yang kurang enak):
+
+- Bukan suite 3D beneran: tanpa modeling, tanpa sculpting, tanpa renderer canggih.
+- Satu rig humanoid 17 sendi: tanpa jari, tanpa wajah.
+- Copy Dance kualitasnya setara webcam: gerakan cepat, anggota tubuh yang tertutup, dan kamera yang bergerak bikin bingung, jadi siap-siap merapikan.
+- Tanpa fisika. Kaki kadang meluncur. Boneka bisa saling tembus.
+- Koneksi agent dari versi web tidak jalan di Safari.
+- Karakter hasil import dan gambar referensi tetap tinggal di browser yang mengimpornya.
+- Kebanyakan baru dites di Chrome oleh satu orang. Pasti ada bug, tolong laporkan.
+
+Kalau masih kedengaran seru, selamat datang. Kalau tidak, santai saja.

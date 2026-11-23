@@ -13,14 +13,14 @@ import { useUi } from './uiStore';
 
 /** Quick add of a body size x gender. Labels are Indonesian. */
 const QUICK_ADD: { label: string; preset: BodyPreset; gender: Gender }[] = [
-  { label: 'Bayi cowok', preset: 'kecil', gender: 'm' },
-  { label: 'Bayi cewek', preset: 'kecil', gender: 'f' },
-  { label: 'Anak cowok', preset: 'pendek', gender: 'm' },
-  { label: 'Anak cewek', preset: 'pendek', gender: 'f' },
-  { label: 'Remaja cowok', preset: 'remaja', gender: 'm' },
-  { label: 'Remaja cewek', preset: 'remaja', gender: 'f' },
-  { label: 'Dewasa cowok', preset: 'dewasa', gender: 'm' },
-  { label: 'Dewasa cewek', preset: 'dewasa', gender: 'f' },
+  { label: 'Baby boy', preset: 'kecil', gender: 'm' },
+  { label: 'Baby girl', preset: 'kecil', gender: 'f' },
+  { label: 'Boy (child)', preset: 'pendek', gender: 'm' },
+  { label: 'Girl (child)', preset: 'pendek', gender: 'f' },
+  { label: 'Teen boy', preset: 'remaja', gender: 'm' },
+  { label: 'Teen girl', preset: 'remaja', gender: 'f' },
+  { label: 'Man', preset: 'dewasa', gender: 'm' },
+  { label: 'Woman', preset: 'dewasa', gender: 'f' },
 ];
 
 function PresetMenu() {
@@ -70,7 +70,7 @@ function PresetMenu() {
               <span className="muted mono">{SCENE_PRESETS[p].count} dolls</span>
             </button>
           ))}
-          <div className="muted small preset-note">Mixed F/M. Keluarga: 2 adults, 1 anak, 1 bayi.</div>
+          <div className="muted small preset-note">Mixed F/M. Family: 2 adults, 1 child, 1 baby.</div>
         </Pop>
       )}
     </div>

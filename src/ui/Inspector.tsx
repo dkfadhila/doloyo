@@ -202,7 +202,7 @@ function BodySection({ obj }: { obj: SceneObject }) {
                 key={p}
                 className={'btn' + (prof.preset === p ? ' on' : '')}
                 disabled={blocked}
-                title={blocked ? 'Superhero characters only support Remaja and Dewasa' : BODY_HINT[p]}
+                title={blocked ? 'Superhero characters only support Teen and Adult' : BODY_HINT[p]}
                 onClick={() => run({ preset: p })}
               >
                 {BODY_SHORT[p]}
@@ -237,7 +237,7 @@ function BodySection({ obj }: { obj: SceneObject }) {
           <button className="btn" onClick={() => run({ heightScale: 1 })}>Reset height</button>
         </div>
       )}
-      <div className="note">Bayi and Anak use the neutral mannequin. Changing the body unpins the feet.</div>
+      <div className="note">Baby, Child and Teen use the neutral mannequin. Changing the body unpins the feet.</div>
     </section>
   );
 }

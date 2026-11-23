@@ -34,7 +34,7 @@ export const SCENE_PRESETS: Record<ScenePreset, { count: number; spacing: number
   duo: { count: 2, spacing: 1.0, label: 'Duo' },
   trio: { count: 3, spacing: 0.95, label: 'Trio' },
   group5: { count: 5, spacing: 0.85, label: 'Group of 5' },
-  keluarga: { count: 4, spacing: 0.95, label: 'Keluarga' },
+  keluarga: { count: 4, spacing: 0.95, label: 'Family' },
 };
 
 /** Members of the "keluarga" preset, left to right: father, child, baby (sitting), mother. */

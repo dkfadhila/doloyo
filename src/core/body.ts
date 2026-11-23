@@ -16,9 +16,9 @@ import { RIG } from './rig';
 import type { BodyPreset, BodySpec, Gender, JointName, SceneObject, Vec3 } from './types';
 import { BODY_PRESETS } from './types';
 
-export const BODY_LABEL: Record<BodyPreset, string> = { kecil: 'Bayi / Kecil', pendek: 'Anak', remaja: 'Remaja', dewasa: 'Dewasa' };
+export const BODY_LABEL: Record<BodyPreset, string> = { kecil: 'Baby', pendek: 'Child', remaja: 'Teen', dewasa: 'Adult' };
 /** Short label for the segmented control. */
-export const BODY_SHORT: Record<BodyPreset, string> = { kecil: 'Bayi', pendek: 'Anak', remaja: 'Remaja', dewasa: 'Dewasa' };
+export const BODY_SHORT: Record<BodyPreset, string> = { kecil: 'Baby', pendek: 'Child', remaja: 'Teen', dewasa: 'Adult' };
 export const BODY_HINT: Record<BodyPreset, string> = {
   kecil: 'Baby, about 12 months, 0.75 m',
   pendek: 'Child, about 6-7 years, 1.20 m',

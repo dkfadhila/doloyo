@@ -88,10 +88,10 @@ Every mannequin has an optional `body: { preset, heightScale?, gender? }` (scene
 
 | preset | label | meaning | height | head-heights |
 |---|---|---|---|---|
-| `kecil` | Bayi / Kecil | baby, about 12 months | 0.75 m | about 4 (big head, short neck, short chubby limbs) |
-| `pendek` | Anak | child, about 6-7 years | 1.20 m | about 6 |
-| `remaja` | Remaja | teenager, about 15 years | 1.62 m (F 1.58 m) | about 7 |
-| `dewasa` | Dewasa | adult (default) | 1.75 m (F 1.65 m) | about 7.5 |
+| `kecil` | Baby | baby, about 12 months | 0.75 m | about 4 (big head, short neck, short chubby limbs) |
+| `pendek` | Child | child, about 6-7 years | 1.20 m | about 6 |
+| `remaja` | Teen | teenager, about 15 years | 1.62 m (F 1.58 m) | about 7 |
+| `dewasa` | Adult | adult (default) | 1.75 m (F 1.65 m) | about 7.5 |
 
 `heightScale` (0.9 to 1.1) fine-tunes the preset height. `gender` ("m" or "f") only nudges proportions (shoulder width) and picks the base character; it is derived from the character id when omitted.
 

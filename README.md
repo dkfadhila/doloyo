@@ -43,7 +43,7 @@ First steps: click a joint, drag the ring to rotate it (R), move the playhead, p
 
 <img src="docs/img/characters.webp" alt="Eight mannequins side by side: baby, child, teenager and adult, male and female" width="100%">
 
-*The eight built-in body variants: Bayi (baby), Anak (child), Remaja (teenager) and Dewasa (adult), each male and female. Children are neutral art mannequins; only proportions change. IK, foot pins and exports follow the body.*
+*The eight built-in body variants: Baby, Child, Teen and Adult, each male and female. Children are neutral art mannequins; only proportions change. IK, foot pins and exports follow the body.*
 
 - Body sizes with a height slider and baby poses (sitting, crawling, standing and holding on) that keep the body on the floor.
 - Quaternius mannequins and superheroes (CC0), or your own `.glb` / `.vrm` file with bone mapping. Every character is just another view of the same 17-joint pose.
@@ -156,23 +156,24 @@ Doloyo is MIT, see [LICENSE](LICENSE). Characters and animations by [Quaternius]
 
 ## Why Doloyo?
 
-An honest comparison. Doloyo is a small, focused posing and keyframe tool; the others are bigger or different in kind. A dash means "not covered here"; check each product's site for details.
+Honest answer: no serious reason. Doloyo is a side project made for fun, and it shows.
 
-| | Runs in browser | Install | Price model | Keyframe editor | Video mocap | AI-agent control | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| **Doloyo** | Yes | None for the web app; clone to run locally or to use the agent server | Free, MIT licensed | Yes (curves, bezier easing, IK, foot pins) | Yes, MediaPipe on your machine (webcam-grade) | Yes, MCP server | Humanoid 17-joint rig; reference images; exports PNG, video, GLB, BVH |
-| **Blender** | No | Desktop install | Free and open source | Yes (animation) | - | - | Full 3D suite (modeling, animation, rendering); steep learning curve for posing-only work |
-| **Cascadeur** | No | Desktop app | Freemium; paid export formats | Yes | - | - | Keyframe animation with physics and AI assistance; the free tier exports only its own .casc format, FBX/DAE/USD export needs a paid plan |
-| **Magic Poser** | Web version (also mobile and tablet apps) | Mobile/tablet app, or web | Freemium; paid Pro features | Focused on still poses | - | - | Posing for drawing references |
-| **Mixamo** | Yes (web service) | None (Adobe ID sign-in) | Free with an Adobe ID | Not a keyframe editor | - | - | Auto-rigging and a large animation library; Adobe can change the terms |
+It is not the best tool for anything. If you need real animation work, use a proper 3D or animation package; they are far more capable and far more polished. Doloyo is for when you just want to throw a few floppy dolls on screen, make them dance, and maybe let an AI agent push them around, all in a browser tab.
 
-Comparison as of November 2026; check each product's site for current details.
+What you get:
 
-### Where Doloyo falls short
+- Opens in a browser, nothing to install for the web app, renders on your own machine.
+- Keyframes, IK, a curve editor, an animation library and Copy Dance from a video.
+- A built-in MCP server so an agent can pose and animate for you.
 
-- It is not a full 3D suite: no modeling or sculpting and no rendering engine like Cycles.
-- The rig is one humanoid with 17 joints: no fingers and no face.
-- Video mocap is webcam-grade: depth is estimated and fast or hidden moves degrade it.
-- No physics.
-- The hosted agent connection is blocked in Safari (use the local app there).
+What you also get (the not so good part):
+
+- It is not a real 3D suite: no modeling, no sculpting, no fancy renderer.
+- One humanoid rig with 17 joints: no fingers, no face.
+- Copy Dance is webcam-grade: fast moves, hidden limbs and moving cameras confuse it, so expect cleanup.
+- No physics. Feet slide sometimes. Dolls clip into each other.
+- The hosted agent connection does not work in Safari.
 - Imported characters and reference images stay in the browser that imported them.
+- Mostly tested in Chrome by one person. Expect bugs, and please report them.
+
+If that still sounds fun, welcome. If not, no hard feelings.

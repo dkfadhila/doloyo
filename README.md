@@ -1,8 +1,10 @@
+![Motion Doll Studio banner](docs/img/banner.webp)
+
 # Motion Doll Studio
 
 Pose a 3D mannequin, keyframe it, and export the result. It runs in your browser, and AI agents can drive it through a local MCP server.
 
-![Motion Doll Studio](docs/img/hero.png)
+![Motion Doll Studio editor](docs/img/hero.png)
 
 ## Two ways to use it
 

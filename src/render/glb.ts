@@ -28,6 +28,7 @@ import {
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { eulerToQuat, evaluateProject, quatToEuler } from '../core/interpolate';
 import { objectMatrix } from '../core/ik';
+import { profileOf } from '../core/body';
 import { RIG, RIG_BY_NAME } from '../core/rig';
 import type { JointName, Pose, Project, SceneObject, Vec3 } from '../core/types';
 import { ballGeometry, BALL_JOINTS, dollParts } from '../three/dollGeometry';
@@ -188,16 +189,22 @@ export async function buildGlbScene(opt: GlbBuildOptions): Promise<GlbBuild> {
     // procedural doll: joint hierarchy with meshes
     const groups = {} as Record<JointName, Group>;
     const parts = dollParts();
+    const prof = profileOf(src);
     for (const d of RIG) {
       const g = new Group();
       g.name = `${base}_${d.name}`;
-      g.position.set(...d.offset);
+      g.position.set(...prof.offset[d.name]);
       groups[d.name] = g;
       (d.parent ? groups[d.parent] : holder).add(g);
+      // the volumes of the joint are scaled by the body (a holder keeps the child joints at their own offsets)
+      const vol = new Group();
+      vol.name = `${g.name}_volume`;
+      vol.scale.setScalar(prof.mesh[d.name]);
+      g.add(vol);
       if (BALL_JOINTS.has(d.name)) {
         const m = new Mesh(ballGeometry(d.ball), dollMat);
         m.name = `${g.name}_ball`;
-        g.add(m);
+        vol.add(m);
       }
       parts[d.name].forEach((p, k) => {
         p.geo.normalizeNormals(); // lathe normals are not unit length; keeps the exporter quiet
@@ -206,7 +213,7 @@ export async function buildGlbScene(opt: GlbBuildOptions): Promise<GlbBuild> {
         m.position.set(...p.pos);
         if (p.quat) m.quaternion.set(...p.quat);
         if (p.scale) m.scale.set(...p.scale);
-        g.add(m);
+        vol.add(m);
       });
     }
     for (const d of RIG) {
@@ -215,10 +222,10 @@ export async function buildGlbScene(opt: GlbBuildOptions): Promise<GlbBuild> {
       ts.quat(groups[d.name], q);
     }
     const hp: number[] = [];
-    const off = RIG_BY_NAME.hips.offset;
+    const off = prof.offset.hips;
     for (let i = 0; i < n; i++) {
       const h = find(src.id, i).hipsPos;
-      hp.push(off[0] + h[0], off[1] + h[1], off[2] + h[2]);
+      hp.push(off[0] + h[0] * prof.hipsScale, off[1] + h[1] * prof.hipsScale, off[2] + h[2] * prof.hipsScale);
     }
     ts.vec(groups.hips, 'position', hp);
   }
@@ -280,18 +287,20 @@ const f4 = (n: number) => (Math.abs(n) < 5e-7 ? 0 : n).toFixed(4);
 /** BVH of one mannequin (17 joints, Y up, +Z forward, centimeters). Joint rotations are Euler XYZ (channel order X, Y, Z). */
 export function buildBvh(project: Project, obj: SceneObject, fps: number): string {
   const n = frameCount(project, fps);
+  const prof = profileOf(obj);
   const lines: string[] = ['HIERARCHY'];
   const kids = (j: JointName | null) => RIG.filter((d) => d.parent === j);
   const emit = (name: JointName, depth: number) => {
     const d = RIG_BY_NAME[name];
     const pad = '  '.repeat(depth);
-    const off = d.parent ? d.offset : ([0, 0, 0] as Vec3);
+    const off = d.parent ? prof.offset[name] : ([0, 0, 0] as Vec3);
     lines.push(`${pad}${d.parent ? 'JOINT' : 'ROOT'} ${name}`, `${pad}{`, `${pad}  OFFSET ${off.map((v) => f4(v * 100)).join(' ')}`);
     lines.push(`${pad}  CHANNELS ${d.parent ? 3 : 6} ${d.parent ? '' : 'Xposition Yposition Zposition '}Xrotation Yrotation Zrotation`);
     const ch = kids(name);
     if (!ch.length) {
       const seg = d.segs[0];
-      const end: Vec3 = seg ? [seg.to[0], seg.to[1], seg.to[2]] : d.ovoid ? [0, 0.22, 0] : [0, 0.05, 0];
+      const sc = prof.mesh[name];
+      const end: Vec3 = seg ? [seg.to[0] * sc, seg.to[1] * sc, seg.to[2] * sc] : d.ovoid ? [0, 0.22 * sc, 0] : [0, 0.05 * sc, 0];
       lines.push(`${pad}  End Site`, `${pad}  {`, `${pad}    OFFSET ${end.map((v) => f4(v * 100)).join(' ')}`, `${pad}  }`);
     }
     ch.forEach((c) => emit(c.name, depth + 1));
@@ -308,8 +317,9 @@ export function buildBvh(project: Project, obj: SceneObject, fps: number): strin
   for (let i = 0; i < n; i++) {
     const t = frameTime(i, fps, project.duration);
     const o = evaluateProject({ ...project, time: t }, t).objects.find((x) => x.id === obj.id)!;
-    const root = RIG_BY_NAME.hips.offset;
-    const p = new Vector3(root[0] + o.hipsPos[0], root[1] + o.hipsPos[1], root[2] + o.hipsPos[2]).applyMatrix4(objectMatrix(o));
+    const root = prof.offset.hips;
+    const k = prof.hipsScale;
+    const p = new Vector3(root[0] + o.hipsPos[0] * k, root[1] + o.hipsPos[1] * k, root[2] + o.hipsPos[2] * k).applyMatrix4(objectMatrix(o));
     const vals: number[] = [];
     for (const j of order) {
       let e = o.pose[j];

@@ -1,10 +1,11 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { getCharacter, listCharacters, onRegistryChange, registryVersion } from '../characters/registry';
+import { BODY_HINT, BODY_SHORT, genderOf, HEIGHT_SCALE_MAX, HEIGHT_SCALE_MIN, isChildPreset, isSuperhero, profileOf } from '../core/body';
 import { endWorld, hasPins, poleAngleOf } from '../core/ik';
 import { POSE_NAMES } from '../core/poses';
 import { RIG_BY_NAME } from '../core/rig';
-import { LIMBS, type Limb, type MaterialMode, type SceneObject, type Vec3 } from '../core/types';
+import { BODY_PRESETS, LIMBS, type BodyPreset, type Limb, type MaterialMode, type SceneObject, type Vec3 } from '../core/types';
 import { selectedObject, useStore } from '../store';
 import { Icon } from './Icons';
 import { setCameraFromView } from './keyActions';
@@ -129,6 +130,7 @@ function CharacterSection({ obj }: { obj: SceneObject }) {
   const dispatch = useStore((s) => s.dispatch);
   const list = listCharacters();
   const def = getCharacter(obj.character);
+  const [err, setErr] = useState<string | null>(null);
   const mats: { id: MaterialMode; label: string; hint: string }[] = [
     { id: 'doll', label: 'Doll', hint: 'Matte grey art-doll material' },
     { id: 'original', label: 'Original', hint: "The character file's own textures" },
@@ -142,7 +144,9 @@ function CharacterSection({ obj }: { obj: SceneObject }) {
           value={def ? obj.character : ''}
           onChange={(e) => {
             const d = getCharacter(e.target.value);
-            if (d) dispatch({ type: 'object_set_character', object: obj.id, character: d.id, material: d.defaultMaterial });
+            if (!d) return;
+            const r = dispatch({ type: 'object_set_character', object: obj.id, character: d.id, material: d.defaultMaterial });
+            setErr(r.ok ? null : r.error ?? 'Could not change the character');
           }}
         >
           {!def && <option value="">Missing: {obj.character}</option>}
@@ -167,8 +171,72 @@ function CharacterSection({ obj }: { obj: SceneObject }) {
           ))}
         </span>
       </div>
+      {err && <div className="note err">{err}</div>}
       {!def && <div className="note err">This character is not available in this browser (imported files are stored locally). The procedural doll is shown instead.</div>}
       {def?.custom && <div className="note">Imported characters live only in this browser; the project file just references them.</div>}
+    </section>
+  );
+}
+
+function BodySection({ obj }: { obj: SceneObject }) {
+  const dispatch = useStore((s) => s.dispatch);
+  const prof = profileOf(obj);
+  const gender = genderOf(obj);
+  const hero = isSuperhero(obj.character);
+  const group = useRef('');
+  const [err, setErr] = useState<string | null>(null);
+  const run = (c: { preset?: BodyPreset; heightScale?: number; gender?: 'm' | 'f' }, g?: string) => {
+    const r = dispatch({ type: 'object_set_body', object: obj.id, ...c }, g ? { group: g } : undefined);
+    setErr(r.ok ? null : r.error ?? 'Could not change the body');
+  };
+  return (
+    <section>
+      <div className="section-title">Body</div>
+      <div className="row">
+        <span className="seg body-seg">
+          {BODY_PRESETS.map((p) => {
+            const blocked = hero && isChildPreset(p);
+            return (
+              <button
+                key={p}
+                className={'btn' + (prof.preset === p ? ' on' : '')}
+                disabled={blocked}
+                title={blocked ? 'Superhero characters only support Remaja and Dewasa' : BODY_HINT[p]}
+                onClick={() => run({ preset: p })}
+              >
+                {BODY_SHORT[p]}
+              </button>
+            );
+          })}
+        </span>
+      </div>
+      <div className="row body-height">
+        <span className="muted">Height</span>
+        <input
+          type="range"
+          className="slider"
+          min={HEIGHT_SCALE_MIN}
+          max={HEIGHT_SCALE_MAX}
+          step={0.01}
+          value={prof.heightScale}
+          title="Fine-tune the height of this preset (+/- 10%)"
+          onPointerDown={() => (group.current = 'body-' + Date.now() + Math.random())}
+          onChange={(e) => run({ heightScale: parseFloat(e.target.value) }, group.current || undefined)}
+        />
+        <span className="mono body-m" title="Nominal height">{prof.height.toFixed(2)} m</span>
+        <span className="seg" title="Gender: only a subtle proportion difference and the base character (the adult female uses Mannequin F)">
+          {(['m', 'f'] as const).map((g) => (
+            <button key={g} className={'btn' + (gender === g ? ' on' : '')} onClick={() => run({ gender: g })}>{g.toUpperCase()}</button>
+          ))}
+        </span>
+      </div>
+      {err && <div className="note err">{err}</div>}
+      {prof.heightScale !== 1 && (
+        <div className="btn-row">
+          <button className="btn" onClick={() => run({ heightScale: 1 })}>Reset height</button>
+        </div>
+      )}
+      <div className="note">Bayi and Anak use the neutral mannequin. Changing the body unpins the feet.</div>
     </section>
   );
 }
@@ -192,7 +260,7 @@ function IkSection({ obj }: { obj: SceneObject }) {
           <span className="muted small">{LIMB_LABEL[l]}</span>
           <NumberField
             label="P"
-            value={poleAngleOf(obj.pose, obj.hipsPos, l)}
+            value={poleAngleOf(obj.pose, obj.hipsPos, l, profileOf(obj))}
             step={1}
             decimals={1}
             min={-180}
@@ -292,7 +360,7 @@ export function Inspector({ open }: { open?: boolean }) {
             />
             {joint === 'hips' && (
               <VecRow
-                title="Hips offset (m)"
+                title="Hips offset (m, adult units; scaled to the body)"
                 value={obj.hipsPos}
                 step={0.01}
                 decimals={3}
@@ -312,6 +380,7 @@ export function Inspector({ open }: { open?: boolean }) {
           {!isCam && <VecRow title="Scale" value={obj.scale} step={0.01} decimals={3} onCommit={(v, group) => dispatch({ type: 'object_transform', object: obj.id, scale: v }, { group })} />}
         </section>
 
+        {isDoll && <BodySection obj={obj} />}
         {isCam && <CameraSection obj={obj} />}
         {isDoll && <IkSection obj={obj} />}
 

@@ -1,5 +1,6 @@
 /** MediaPipe pose landmarks -> our rig samples. Pure TS (no MediaPipe import) so it can be unit-tested. */
 import type { BakeSample } from '../core/bake';
+import { ADULT, type BodyProfile } from '../core/body';
 import type { Pose, Vec3 } from '../core/types';
 import { bodyPointsFromFK, rigFK, solvePose, type BodyPoints } from '../retarget/solver';
 import { OneEuro, OneEuroBank } from './oneEuro';
@@ -47,6 +48,8 @@ export interface ConvertOptions {
   start: number;
   /** Video frame that maps to `start` (default: the track's first frame). Use the earliest first frame of all assigned tracks to keep dancers in sync. */
   originFrame?: number;
+  /** Body of the target doll: the foot lock then keeps ITS feet on the floor (hipsPos stays in adult units). */
+  profile?: BodyProfile;
 }
 
 export const DEFAULT_CONVERT: Omit<ConvertOptions, 'fps' | 'start'> = { minCutoff: 1.5, beta: 0.8, footLock: true, inPlace: false, mirror: false };
@@ -166,10 +169,12 @@ export function trackToSamples(track: Track, video: VideoInfo, o: ConvertOptions
     let hx = 0, hy = 0;
     if (!o.inPlace) hx = mx * (cx - cx0) * video.width * mpp;
     if (o.footLock) {
-      const fk = rigFK(pose);
+      const prof = o.profile ?? ADULT;
+      const fk = rigFK(pose, [0, 0, 0], prof);
       const pts = bodyPointsFromFK(fk);
       const low = Math.min(pts.ankleL[1], pts.ankleR[1], pts.toeL![1], pts.toeR![1]);
-      hy = SOLE - low; // lift so the lowest foot point rests on y = 0 (fk is evaluated with hipsPos = 0)
+      // lift so the lowest foot point rests on y = 0 (fk is evaluated with hipsPos = 0); the sole offset scales with the foot
+      hy = (SOLE * prof.f.foot - low) / prof.hipsScale; // adult units: the body multiplies hipsPos by hipsScale
     } else {
       hy = -(cy - cy0) * video.height * mpp;
     }

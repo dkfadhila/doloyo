@@ -21,7 +21,7 @@ const EXPECTED_TOOLS = [
   'pose_apply', 'pose_save', 'pose_delete', 'pose_mirror', 'joint_reset', 'key_add', 'key_remove', 'key_move',
   'key_set_easing', 'timeline_set', 'playhead_seek', 'batch', 'undo', 'redo', 'viewport_snapshot', 'render_export',
   'object_set_character', 'anim_list', 'anim_apply', 'mocap_from_video',
-  'keys_edit', 'keys_remove', 'ik_reach', 'ik_pin', 'ik_bake', 'camera_set', 'scene_preset',
+  'keys_edit', 'keys_remove', 'ik_reach', 'ik_pin', 'ik_bake', 'camera_set', 'scene_preset', 'object_set_body',
 ];
 
 const transport = new StdioClientTransport({
@@ -235,6 +235,19 @@ try {
   assert.equal(bad.isError, true);
   ok('object_set_character validates material');
 
+  const setBody = json(await client.callTool({ name: 'object_set_body', arguments: { object: 'Mannequin 1', preset: 'kecil', heightScale: 1.05, gender: 'f' } }));
+  assert.deepEqual(calls.at(-1).params, { type: 'object_set_body', object: 'Mannequin 1', preset: 'kecil', heightScale: 1.05, gender: 'f' });
+  assert.equal(setBody.ok, true);
+  for (const args of [{ object: 'Mannequin 1', preset: 'giant' }, { object: 'Mannequin 1', heightScale: 1.5 }, { object: 'Mannequin 1', gender: 'x' }]) {
+    const n = calls.length;
+    const badBody = await client.callTool({ name: 'object_set_body', arguments: args }).catch((e) => ({ isError: true, content: [{ type: 'text', text: String(e.message) }] }));
+    assert.equal(badBody.isError, true);
+    assert.equal(calls.length, n, 'invalid body must not reach the browser');
+  }
+  await client.callTool({ name: 'object_add', arguments: { kind: 'mannequin', name: 'Bayi', body: { preset: 'kecil', gender: 'm' } } });
+  assert.deepEqual(calls.at(-1).params, { type: 'object_add', kind: 'mannequin', name: 'Bayi', body: { preset: 'kecil', gender: 'm' } });
+  ok('object_set_body / object_add body forward as dispatch and validate preset, heightScale and gender');
+
   const list = json(await client.callTool({ name: 'anim_list', arguments: { query: 'dance' } }));
   assert.equal(calls.at(-1).method, 'anim_list');
   assert.deepEqual(calls.at(-1).params, { query: 'dance' });
@@ -310,7 +323,11 @@ try {
   assert.deepEqual(calls.at(-1).params, { type: 'scene_preset', preset: 'trio', character: 'superhero-f', clear: true });
   const badPreset = await client.callTool({ name: 'scene_preset', arguments: { preset: 'army' } }).catch((e) => ({ isError: true, content: [{ type: 'text', text: String(e.message) }] }));
   assert.equal(badPreset.isError, true);
-  ok('scene_preset forwards and validates the preset name');
+  await client.callTool({ name: 'scene_preset', arguments: { preset: 'keluarga', clear: true } });
+  assert.deepEqual(calls.at(-1).params, { type: 'scene_preset', preset: 'keluarga', clear: true });
+  await client.callTool({ name: 'scene_preset', arguments: { preset: 'duo', body: { preset: 'pendek' } } });
+  assert.deepEqual(calls.at(-1).params, { type: 'scene_preset', preset: 'duo', body: { preset: 'pendek' } });
+  ok('scene_preset forwards and validates the preset name (keluarga, body)');
 
   await client.callTool({ name: 'key_set_easing', arguments: { object: 'Mannequin 1', frame: 0, target: 'head', easing: { type: 'bezier', c: [0.2, 0, 0.1, 1.4] } } });
   assert.deepEqual(calls.at(-1).params.easing, { type: 'bezier', c: [0.2, 0, 0.1, 1.4] });

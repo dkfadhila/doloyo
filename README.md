@@ -37,12 +37,13 @@ The MCP package is not on npm yet, which is why the bridge currently needs a clo
 ## Features
 
 **Posing and animation**
-- Procedural mannequin with a 17-joint rig and joint limits, plus cube, sphere and cylinder; many objects per scene, presets for duo, trio and group of 5.
+- Procedural mannequin with a 17-joint rig and joint limits, plus cube, sphere and cylinder; many objects per scene, mixed-gender presets for duo, trio, group of 5 and a family (2 adults, child, baby).
 - FK posing with a gizmo, two-bone IK on wrists and ankles, foot pins, mirror, pose library, onion skin.
 - Timeline with per-joint keys, per-key easing (named or bezier), curve editor, marquee and multi-key edit, copy and paste, loop, fps and duration.
 - Undo and redo for everything, including agent edits (every change is an invertible command).
 
 **Characters and motion sources**
+- Body sizes: baby, child, teenager and adult (male and female) with a height slider; proportions, IK, foot pins and exports follow the body, and baby poses (sitting, crawling, standing and holding on) keep the body on the floor.
 - Quaternius mannequins and superheroes (CC0), your own `.glb` or `.vrm` with bone mapping, retargeted from the one 17-joint pose.
 - Animation library: 86 CC0 clips, applied as keys in one undo step (target, speed, loops, mirror, in place).
 - Copy Dance: video to keys with MediaPipe Pose Landmarker, up to 4 people, smoothing and foot lock. Runs locally.

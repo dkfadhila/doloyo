@@ -36,6 +36,14 @@ const target = z
   .describe('"all" (default), one channel ("position","rotation","scale","hipsPos" or a joint name; the render camera has "position","target","fov") or an array of channels.');
 const time = z.number().min(0).optional().describe('Time in seconds. Defaults to the playhead. Snaps to the frame grid.');
 const frame = z.number().int().min(0).optional().describe('Frame number (alternative to time, uses the project fps).');
+const bodyPreset = z.enum(['kecil', 'pendek', 'remaja', 'dewasa']).describe('Body size: kecil = baby/toddler (~12 months, 0.75 m, big head, short limbs), pendek = child (~6-7 years, 1.20 m), remaja = teenager (1.62 m, F 1.58 m), dewasa = adult (1.75 m, F 1.65 m; the default look).');
+const bodySpec = z
+  .object({
+    preset: bodyPreset,
+    heightScale: z.number().min(0.9).max(1.1).optional().describe('Fine-tune of the preset height, 0.9 to 1.1 (default 1).'),
+    gender: z.enum(['m', 'f']).optional().describe('Only a subtle proportion difference (shoulder width) and the base character; never chest or hip shape. Default: from the character (mannequin-f / superhero-f = f).'),
+  })
+  .describe('Body size of a mannequin.');
 const keyRef = z.object({ object: objectRef, target, time, frame });
 
 type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
@@ -185,6 +193,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
       name: z.string().optional(),
       character: z.string().optional().describe('Mannequins only: doll-procedural, mannequin-f (default), mannequin-m, superhero-m, superhero-f or custom:<id> of an imported character.'),
       position: vec3.optional().describe('[x,y,z] meters, Y up. Default: next free slot beside the others.'),
+      body: bodySpec.optional().describe('Mannequins only: body size. kecil and pendek use the neutral mannequin-m mesh for both genders (a girl keeps gender f), dewasa f uses mannequin-f. Superhero characters only allow remaja and dewasa.'),
     },
   );
   command(
@@ -194,6 +203,16 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
       object: objectRef,
       character: z.string().min(1),
       material: z.enum(['doll', 'original']).optional(),
+    },
+  );
+  command(
+    'object_set_body',
+    'Set the body size of a mannequin: preset kecil (baby ~0.75 m, 4 head-heights), pendek (child ~1.20 m), remaja (teen ~1.62 m) or dewasa (adult), a heightScale 0.9..1.1 fine-tune and/or gender. Proportions (leg, torso, arm, neck, head, shoulder and hip width) change everywhere: IK, foot pins, exports and the picture all match, and the feet stay on the floor. Pose data are rotations, so keys and animation clips work on any body unchanged; hipsPos keys are stored in adult units and scaled by the body. Small presets switch built-in mannequins to the neutral mannequin-m mesh (dewasa female uses mannequin-f). Superhero characters only support remaja and dewasa (error otherwise). Pinned feet are removed (undo brings them back). Baby poses for pose_apply: duduk (sitting), merangkak (crawling), berdiri_pegangan (standing, holding on).',
+    {
+      object: objectRef,
+      preset: bodyPreset.optional(),
+      heightScale: z.number().min(0.9).max(1.1).optional().describe('0.9 to 1.1, relative to the preset height (1 = the preset).'),
+      gender: z.enum(['m', 'f']).optional().describe('m or f: subtle proportion difference only; also maps to the right base character.'),
     },
   );
   command('object_remove', 'Remove an object (undoable).', { object: objectRef });
@@ -220,7 +239,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
   );
   command(
     'pose_apply',
-    'Apply a pose to a mannequin: a preset ("stand","t_pose","crouch","kneel","point","wave_up"), a saved custom pose name, or an inline pose {joints:{name:[x,y,z]}, hipsPos?}. A preset/name resets every joint first; with partial=true and an inline pose only the listed joints change.',
+    'Apply a pose to a mannequin: a preset ("stand","t_pose","crouch","kneel","point","wave_up","duduk","merangkak","berdiri_pegangan"; the three baby poses solve the hips height from the body so hands, knees and feet rest on the floor), a saved custom pose name, or an inline pose {joints:{name:[x,y,z]}, hipsPos?}. A preset/name resets every joint first; with partial=true and an inline pose only the listed joints change.',
     {
       object: objectRef,
       pose: z.union([
@@ -314,8 +333,8 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
   );
   command(
     'scene_preset',
-    'Add a formation of new mannequins in an arc facing the audience (+Z): duo (2), trio (3) or group5 (5), as ONE undo step. clear=true first removes the existing mannequins. character picks the model of every new doll (default mannequin-f).',
-    { preset: z.enum(['duo', 'trio', 'group5']), character: z.string().optional(), clear: z.boolean().optional() },
+    'Add a formation of new mannequins in an arc facing the audience (+Z): duo (2), trio (3), group5 (5) or keluarga (4: father, child, baby sitting, mother), as ONE undo step. Mixed gender by default (alternating mannequin-f / mannequin-m). clear=true first removes the existing mannequins. character picks one model for every new doll (adults in keluarga follow the family gender for superhero ids). body sets one body size for every doll (not for keluarga, which has fixed sizes).',
+    { preset: z.enum(['duo', 'trio', 'group5', 'keluarga']), character: z.string().optional(), clear: z.boolean().optional(), body: bodySpec.optional() },
   );
   command('timeline_set', 'Set the project fps (1..240), duration in seconds and/or loop flag.', {
     fps: z.number().int().min(1).max(240).optional(),

@@ -2,6 +2,7 @@ import { Color, Group, Material, MeshBasicMaterial, MeshStandardMaterial, type M
 import { getCharacter } from '../characters/registry';
 import { loadCharacter } from '../characters/loader';
 import type { MaterialMode, Pose, Vec3 } from '../core/types';
+import type { BodyProfile } from '../core/body';
 import { Retargeter } from '../retarget/skeletal';
 import { ACCENT, BODY, OBJECT_TINT } from './shared';
 
@@ -34,6 +35,11 @@ export class SkinnedInstance {
 
   get root(): Group {
     return this.rt.root;
+  }
+
+  /** Fit the skeleton to a body size (null = original proportions). Feet stay on the floor. */
+  setBody(profile: BodyProfile | null): void {
+    this.rt.setBody(profile);
   }
 
   apply(pose: Pose, hipsPos: Vec3): void {

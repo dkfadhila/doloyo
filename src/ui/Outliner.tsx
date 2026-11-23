@@ -1,18 +1,30 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { BODY_LABEL } from '../core/body';
 import { CHILDREN } from '../core/rig';
-import { OBJECT_KINDS, type JointName, type ObjectKind } from '../core/types';
+import { OBJECT_KINDS, type BodyPreset, type Gender, type JointName, type ObjectKind } from '../core/types';
 import { KIND_LABEL, SCENE_PRESETS, type ScenePreset } from '../core/commands';
 import { listCharacters, onRegistryChange, registryVersion } from '../characters/registry';
-import { DEFAULT_CHARACTER } from '../core/types';
 import { useStore } from '../store';
 import { Icon } from './Icons';
 import { addCameraFromView } from './keyActions';
 import { Pop } from './Popover';
 
+/** Quick add of a body size x gender. Labels are Indonesian. */
+const QUICK_ADD: { label: string; preset: BodyPreset; gender: Gender }[] = [
+  { label: 'Bayi cowok', preset: 'kecil', gender: 'm' },
+  { label: 'Bayi cewek', preset: 'kecil', gender: 'f' },
+  { label: 'Anak cowok', preset: 'pendek', gender: 'm' },
+  { label: 'Anak cewek', preset: 'pendek', gender: 'f' },
+  { label: 'Remaja cowok', preset: 'remaja', gender: 'm' },
+  { label: 'Remaja cewek', preset: 'remaja', gender: 'f' },
+  { label: 'Dewasa cowok', preset: 'dewasa', gender: 'm' },
+  { label: 'Dewasa cewek', preset: 'dewasa', gender: 'f' },
+];
+
 function PresetMenu() {
   useSyncExternalStore(onRegistryChange, registryVersion);
   const [open, setOpen] = useState(false);
-  const [character, setCharacter] = useState(DEFAULT_CHARACTER);
+  const [character, setCharacter] = useState('');
   const [replace, setReplace] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -33,6 +45,7 @@ function PresetMenu() {
           <div className="row">
             <span className="muted">Character</span>
             <select value={character} onChange={(e) => setCharacter(e.target.value)}>
+              <option value="">Mixed F / M</option>
               {listCharacters().map((c) => (
                 <option key={c.id} value={c.id}>{c.label}</option>
               ))}
@@ -47,7 +60,7 @@ function PresetMenu() {
               key={p}
               className="menu-item"
               onClick={() => {
-                useStore.getState().dispatch({ type: 'scene_preset', preset: p, character, clear: replace });
+                useStore.getState().dispatch({ type: 'scene_preset', preset: p, ...(character ? { character } : {}), clear: replace });
                 setOpen(false);
               }}
             >
@@ -55,6 +68,7 @@ function PresetMenu() {
               <span className="muted mono">{SCENE_PRESETS[p].count} dolls</span>
             </button>
           ))}
+          <div className="muted small preset-note">Mixed F/M. Keluarga: 2 adults, 1 anak, 1 bayi.</div>
         </Pop>
       )}
     </div>
@@ -151,6 +165,24 @@ export function Outliner() {
                   <span className="with-icon">
                     <Icon name={k} size={14} />
                     {KIND_LABEL[k]}
+                  </span>
+                </button>
+              ))}
+              <div className="menu-sep" />
+              <div className="menu-label muted small">Ukuran tubuh</div>
+              {QUICK_ADD.map((q) => (
+                <button
+                  key={q.label}
+                  className="menu-item"
+                  title={BODY_LABEL[q.preset]}
+                  onClick={() => {
+                    setMenu(false);
+                    dispatch({ type: 'object_add', kind: 'mannequin', name: q.label, character: q.gender === 'f' ? 'mannequin-f' : 'mannequin-m', body: { preset: q.preset, gender: q.gender } });
+                  }}
+                >
+                  <span className="with-icon">
+                    <Icon name="mannequin" size={14} />
+                    {q.label}
                   </span>
                 </button>
               ))}

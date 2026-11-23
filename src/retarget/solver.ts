@@ -4,6 +4,7 @@
  * Coordinates: Y up, +X = character left, +Z = character forward, meters.
  */
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three';
+import { ADULT, type BodyProfile } from '../core/body';
 import { RIG } from '../core/rig';
 import type { JointName, Pose, Vec3 } from '../core/types';
 
@@ -45,13 +46,13 @@ export interface JointFK {
 }
 export type FK = Record<JointName, JointFK>;
 
-/** World transforms of every joint (object space) for a pose + hips offset. */
-export function rigFK(pose: Pose, hipsPos: Vec3 = [0, 0, 0]): FK {
+/** World transforms of every joint (object space) for a pose + hips offset (adult units, scaled by the profile). */
+export function rigFK(pose: Pose, hipsPos: Vec3 = [0, 0, 0], profile: BodyProfile = ADULT): FK {
   const out = {} as FK;
   for (const d of RIG) {
     const local = eulerToQuat(pose[d.name]);
-    const off = v3(d.offset);
-    if (d.name === 'hips') off.add(v3(hipsPos));
+    const off = v3(profile.offset[d.name]);
+    if (d.name === 'hips') off.add(v3(hipsPos).multiplyScalar(profile.hipsScale));
     if (!d.parent) {
       out[d.name] = { pos: off, quat: local };
     } else {

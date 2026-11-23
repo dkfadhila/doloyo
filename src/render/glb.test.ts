@@ -2,6 +2,7 @@ import { WebIO } from '@gltf-transform/core';
 import { Bone, Group, Mesh, MeshBasicMaterial, Object3D, Skeleton, SkinnedMesh, BoxGeometry, Uint16BufferAttribute, Float32BufferAttribute, Vector3 } from 'three';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { applyCommand, newProject, type Command } from '../core/commands';
+import { profileOf } from '../core/body';
 import { fk } from '../core/ik';
 import { evaluateProject } from '../core/interpolate';
 import { PROCEDURAL_CHARACTER, type Project, type SceneObject } from '../core/types';
@@ -211,5 +212,45 @@ describe('BVH export', () => {
     const hipsLocal = fk(o.pose, o.hipsPos).hips.p;
     expect(last[1]).toBeCloseTo((o.position[1] + hipsLocal.y) * 100, 2);
     expect(Math.hypot(last[0] - 100, last[2])).toBeCloseTo(Math.hypot(hipsLocal.x, hipsLocal.z) * 100, 2);
+  });
+});
+
+describe('exports follow the body size', () => {
+  const kid = (): Project => {
+    let p = animatedProject();
+    p = run(p, { type: 'object_set_body', object: p.objects[0].id, preset: 'kecil', gender: 'm' });
+    // set_body switches built-in mannequins to the neutral mesh; this test wants the procedural doll
+    return run(p, { type: 'object_set_character', object: p.objects[0].id, character: PROCEDURAL_CHARACTER });
+  };
+
+  it('BVH: baby joint offsets, end sites and scaled hips translation match the profile', () => {
+    const p = kid();
+    const doll = p.objects.find((o) => o.kind === 'mannequin') as SceneObject;
+    const prof = profileOf(doll);
+    const lines = buildBvh(p, doll, 10).trim().split('\n');
+    const off = (name: string) => {
+      const i = lines.findIndex((l) => new RegExp(`(ROOT|JOINT) ${name}$`).test(l.trim()));
+      return lines[i + 2].trim().split(/\s+/).slice(1).map(Number);
+    };
+    expect(off('L_knee')[1]).toBeCloseTo(prof.offset.L_knee[1] * 100, 2);
+    expect(off('L_shoulder')[0]).toBeCloseTo(prof.offset.L_shoulder[0] * 100, 2);
+    expect(Math.abs(off('L_knee')[1])).toBeLessThan(0.42 * 100 * 0.5);
+    const rows = lines.slice(lines.indexOf('MOTION') + 3);
+    const last = rows[10].trim().split(/\s+/).map(Number);
+    const o = evaluateProject({ ...p, time: 1 }, 1).objects[0];
+    expect(last[1]).toBeCloseTo((o.position[1] + fk(o.pose, o.hipsPos, prof).hips.p.y) * 100, 2);
+  });
+
+  it('GLB procedural doll: joint nodes sit at the profile offsets and the hips track is scaled', async () => {
+    const p = kid();
+    const doll = p.objects.find((o) => o.kind === 'mannequin') as SceneObject;
+    const prof = profileOf(doll);
+    const b = await buildGlbScene({ project: p, objects: [doll], fps: 10, aspect: 16 / 9 });
+    const knee = b.scene.getObjectByName('Dancer_L_knee')!;
+    expect(knee.position.y).toBeCloseTo(prof.offset.L_knee[1], 6);
+    const hips = b.clip.tracks.find((x) => x.name === 'Dancer_hips.position')!;
+    const o0 = evaluateProject({ ...p, time: 1 }, 1).objects[0];
+    expect(hips.values[hips.values.length - 2]).toBeCloseTo(prof.offset.hips[1] + o0.hipsPos[1] * prof.hipsScale, 5);
+    b.dispose();
   });
 });

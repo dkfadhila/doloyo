@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Color, Group, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Vector3, type Material } from 'three';
 import { getCharacter, onRegistryChange, registryVersion } from '../characters/registry';
+import { ADULT, profileOf, type BodyProfile } from '../core/body';
 import { applyPins, hasPins, LIMB_JOINTS } from '../core/ik';
 import { evaluateObject } from '../core/interpolate';
 import { CHILDREN, JOINTS, RIG_BY_NAME, type Seg } from '../core/rig';
@@ -47,7 +48,7 @@ interface Mats {
   ball: Record<JointName, Material>;
 }
 
-function JointNode({ id, name, mats, reg, ghost, view }: { id: string; name: JointName; mats: Mats; reg: Reg; ghost: boolean; view: View }) {
+function JointNode({ id, name, mats, reg, ghost, view, prof }: { id: string; name: JointName; mats: Mats; reg: Reg; ghost: boolean; view: View; prof: BodyProfile }) {
   const def = RIG_BY_NAME[name];
   const mat = mats.body[name];
   const click = ghost
@@ -60,7 +61,8 @@ function JointNode({ id, name, mats, reg, ghost, view }: { id: string; name: Joi
   const rc = ghost ? noRaycast : undefined;
   const showBall = view !== 'none' && (view === 'proxy' || BALL_JOINTS.has(name));
   return (
-    <group name={`${id}:${name}`} ref={(g) => reg(name, g)} position={def.offset}>
+    <group name={`${id}:${name}`} ref={(g) => reg(name, g)} position={prof.offset[name]}>
+      <group scale={prof.mesh[name]}>
       {showBall && (
         <mesh castShadow={shadow} receiveShadow={shadow} material={view === 'proxy' ? mats.ball[name] : mat} geometry={ballGeometry(def.ball)} onClick={click} raycast={rc} renderOrder={view === 'proxy' ? 10 : 0} />
       )}
@@ -82,8 +84,9 @@ function JointNode({ id, name, mats, reg, ghost, view }: { id: string; name: Joi
             )}
           </>
         )}
+      </group>
       {(CHILDREN[name] ?? []).map((c) => (
-        <JointNode key={c} id={id} name={c} mats={mats} reg={reg} ghost={ghost} view={view} />
+        <JointNode key={c} id={id} name={c} mats={mats} reg={reg} ghost={ghost} view={view} prof={prof} />
       ))}
     </group>
   );
@@ -109,7 +112,7 @@ function ghostTime(o: SceneObject, kind: Ghost, time: number, fps: number, frame
   return best;
 }
 
-function applyPose(r: Group, groups: Partial<Record<JointName, Group>>, o: SceneObject) {
+function applyPose(r: Group, groups: Partial<Record<JointName, Group>>, o: SceneObject, prof: BodyProfile) {
   r.position.set(...o.position);
   r.rotation.set(o.rotation[0] * D2R, o.rotation[1] * D2R, o.rotation[2] * D2R);
   r.scale.set(...o.scale);
@@ -119,22 +122,24 @@ function applyPose(r: Group, groups: Partial<Record<JointName, Group>>, o: Scene
     const p = o.pose[j];
     g.rotation.set(p[0] * D2R, p[1] * D2R, p[2] * D2R);
     if (j === 'hips') {
-      const off = RIG_BY_NAME.hips.offset;
-      g.position.set(off[0] + o.hipsPos[0], off[1] + o.hipsPos[1], off[2] + o.hipsPos[2]);
+      const off = prof.offset.hips;
+      const k = prof.hipsScale; // hipsPos is in adult units
+      g.position.set(off[0] + o.hipsPos[0] * k, off[1] + o.hipsPos[1] * k, off[2] + o.hipsPos[2] * k);
     }
   }
 }
 
 /** Pose as currently shown by the joint groups (the gizmo edits them directly while dragging). */
-function poseFromGroups(groups: Partial<Record<JointName, Group>>): { pose: Pose; hipsPos: Vec3 } {
+function poseFromGroups(groups: Partial<Record<JointName, Group>>, prof: BodyProfile): { pose: Pose; hipsPos: Vec3 } {
   const pose = {} as Pose;
   for (const j of JOINTS) {
     const g = groups[j];
     pose[j] = g ? [g.rotation.x * R2D, g.rotation.y * R2D, g.rotation.z * R2D] : [0, 0, 0];
   }
-  const off = RIG_BY_NAME.hips.offset;
+  const off = prof.offset.hips;
+  const k = prof.hipsScale;
   const h = groups.hips;
-  return { pose, hipsPos: h ? [h.position.x - off[0], h.position.y - off[1], h.position.z - off[2]] : [0, 0, 0] };
+  return { pose, hipsPos: h ? [(h.position.x - off[0]) / k, (h.position.y - off[1]) / k, (h.position.z - off[2]) / k] : [0, 0, 0] };
 }
 
 type Load = { state: 'procedural' } | { state: 'loading' } | { state: 'ready'; inst: SkinnedInstance } | { state: 'error'; message: string };
@@ -144,6 +149,10 @@ export function Mannequin({ id, ghost }: { id: string; ghost?: Ghost }) {
   const groups = useRef<Partial<Record<JointName, Group>>>({});
   const character = useStore((s) => s.project.objects.find((o) => o.id === id)?.character ?? PROCEDURAL_CHARACTER);
   const material = useStore((s) => s.project.objects.find((o) => o.id === id)?.material ?? 'doll') as MaterialMode;
+  const body = useStore((s) => s.project.objects.find((o) => o.id === id)?.body);
+  const prof = useMemo(() => profileOf({ character, body }), [character, body]);
+  const profRef = useRef<BodyProfile>(ADULT);
+  profRef.current = prof;
   useSyncExternalStore(onRegistryChange, registryVersion); // imported characters register asynchronously
   const def = getCharacter(character);
   const wantsSkin = !!def && def.kind !== 'procedural';
@@ -229,14 +238,14 @@ export function Mannequin({ id, ghost }: { id: string; ghost?: Ghost }) {
         r.visible = t !== null;
         if (t !== null) {
           const ev = evaluateObject(o, t);
-          applyPose(r, groups.current, ev);
+          applyPose(r, groups.current, ev, profRef.current);
           instRef.current?.apply(ev.pose, ev.hipsPos);
         }
         return;
       }
       const pv = live.override ? null : preview.current;
       const shown = pv && pv.object === id ? { ...o, pose: pv.pose, hipsPos: pv.hipsPos } : o;
-      applyPose(r, groups.current, shown);
+      applyPose(r, groups.current, shown, profRef.current);
       const selected = l.selected === id;
       if (view === 'art') {
         for (const j of JOINTS) {
@@ -255,16 +264,20 @@ export function Mannequin({ id, ghost }: { id: string; ghost?: Ghost }) {
       const inst = instRef.current;
       if (inst) {
         inst.setLook(o.material, selected);
-        const live = drag.active ? poseFromGroups(groups.current) : { pose: shown.pose, hipsPos: shown.hipsPos };
+        const live = drag.active ? poseFromGroups(groups.current, profRef.current) : { pose: shown.pose, hipsPos: shown.hipsPos };
         inst.apply(live.pose, live.hipsPos);
       }
     },
     [id, ghost, mats, view],
   );
+  // body proportions of a skinned character (bone scales / offsets); the adult is left untouched
+  useEffect(() => {
+    if (load.state === 'ready') load.inst.setBody(prof.identity ? null : prof);
+  }, [load, prof]);
   useEffect(() => (ghost ? undefined : registerApplier(apply)), [apply, ghost]);
   useEffect(() => {
     if (!ghost) apply(getLive());
-  }, [apply, ghost, load, material]);
+  }, [apply, ghost, load, material, prof]);
   useFrame(() => {
     if (drag.active) {
       if (!ghost) {
@@ -272,7 +285,7 @@ export function Mannequin({ id, ghost }: { id: string; ghost?: Ghost }) {
         const l = getLive();
         const o = l.project.objects.find((x) => x.id === id);
         if (o && hasPins(o) && l.selected === id && l.joint === 'hips') {
-          const lv = poseFromGroups(groups.current);
+          const lv = poseFromGroups(groups.current, profRef.current);
           const pinned = applyPins({ ...o, pose: lv.pose, hipsPos: lv.hipsPos });
           for (const limb of ['L_leg', 'R_leg'] as const) {
             for (const j of LIMB_JOINTS[limb]) {
@@ -286,7 +299,7 @@ export function Mannequin({ id, ghost }: { id: string; ghost?: Ghost }) {
       // keep the skinned character glued to the gizmo while dragging
       const inst = instRef.current;
       if (inst && !ghost) {
-        const live = poseFromGroups(groups.current);
+        const live = poseFromGroups(groups.current, profRef.current);
         inst.apply(live.pose, live.hipsPos);
       }
       return;
@@ -297,7 +310,7 @@ export function Mannequin({ id, ghost }: { id: string; ghost?: Ghost }) {
   const nameId = ghost ? `ghost-${ghost}-${id}` : id;
   return (
     <group ref={root} name={ghost ? nameId : `obj:${id}`} userData={ghost ? { noSnap: true } : undefined} visible={!ghost}>
-      <JointNode id={nameId} name="hips" mats={mats} reg={reg} ghost={!!ghost} view={view} />
+      <JointNode id={nameId} name="hips" mats={mats} reg={reg} ghost={!!ghost} view={view} prof={prof} />
       {load.state === 'ready' && <primitive object={load.inst.root} />}
     </group>
   );

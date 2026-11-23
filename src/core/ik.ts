@@ -6,8 +6,9 @@
  * Space: "local" is the object's rig space (before the object transform); world targets go through `worldToLocal`.
  */
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three';
+import { ADULT, profileOf, type BodyProfile } from './body';
 import { clampRotation, RIG, RIG_BY_NAME } from './rig';
-import type { FootName, JointName, Limb, Pins, Pose, SceneObject, Vec3 } from './types';
+import type { FootName, GroundContact, JointName, Limb, Pins, Pose, SceneObject, Vec3 } from './types';
 
 const D2R = Math.PI / 180;
 const R2D = 180 / Math.PI;
@@ -39,14 +40,17 @@ export interface JointFrame {
 
 const eulerQ = (e: Vec3) => new Quaternion().setFromEuler(new Euler(e[0] * D2R, e[1] * D2R, e[2] * D2R, 'XYZ'));
 
-/** Forward kinematics of the whole rig in object-local space. */
-export function fk(pose: Pose, hipsPos: Vec3): Record<JointName, JointFrame> {
+/**
+ * Forward kinematics of the whole rig in object-local space. `profile` = the body proportions (default adult);
+ * hipsPos is in adult rig units and is multiplied by profile.hipsScale.
+ */
+export function fk(pose: Pose, hipsPos: Vec3, profile: BodyProfile = ADULT): Record<JointName, JointFrame> {
   const out = {} as Record<JointName, JointFrame>;
   for (const d of RIG) {
     const lq = eulerQ(pose[d.name]);
-    const off = new Vector3(...d.offset);
+    const off = new Vector3(...profile.offset[d.name]);
     if (!d.parent) {
-      off.add(new Vector3(...hipsPos));
+      off.add(new Vector3(...hipsPos).multiplyScalar(profile.hipsScale));
       out[d.name] = { p: off, q: lq };
     } else {
       const par = out[d.parent];
@@ -70,7 +74,7 @@ export const localToWorld = (o: Xform, l: Vector3): Vec3 => {
 
 /** World position of a joint of a mannequin. */
 export function jointWorld(o: SceneObject, j: JointName): Vec3 {
-  return localToWorld(o, fk(o.pose, o.hipsPos)[j].p);
+  return localToWorld(o, fk(o.pose, o.hipsPos, profileOf(o))[j].p);
 }
 /** World position of the end effector (wrist or ankle joint) of a limb. */
 export function endWorld(o: SceneObject, limb: Limb): Vec3 {
@@ -88,9 +92,9 @@ function refPole(limb: Limb, a: Vector3): Vector3 {
 }
 
 /** Current swivel (pole angle, degrees) of a limb: angle of the elbow/knee direction around the root-to-end axis from the reference pole. */
-export function poleAngleOf(pose: Pose, hipsPos: Vec3, limb: Limb): number {
+export function poleAngleOf(pose: Pose, hipsPos: Vec3, limb: Limb, profile: BodyProfile = ADULT): number {
   const [j0, j1, j2] = LIMB_JOINTS[limb];
-  const F = fk(pose, hipsPos);
+  const F = fk(pose, hipsPos, profile);
   const a = F[j2].p.clone().sub(F[j0].p);
   if (a.length() < 1e-6) return 0;
   a.normalize();
@@ -108,6 +112,8 @@ export interface SolveOptions {
   poleAngle?: number;
   /** Keep the end joint's orientation in space (default: legs yes, arms no). */
   keepEnd?: boolean;
+  /** Body proportions (default adult). */
+  profile?: BodyProfile;
 }
 
 export interface SolveResult {
@@ -133,11 +139,12 @@ const toEuler = (q: Quaternion): Vec3 => {
  */
 export function solveLimb(pose: Pose, hipsPos: Vec3, limb: Limb, target: Vector3, opts: SolveOptions = {}): SolveResult {
   const [j0, j1, j2] = LIMB_JOINTS[limb];
-  const F = fk(pose, hipsPos);
+  const prof = opts.profile ?? ADULT;
+  const F = fk(pose, hipsPos, prof);
   const parent = RIG_BY_NAME[j0].parent as JointName;
   const P0 = F[j0].p;
-  const l1 = new Vector3(...RIG_BY_NAME[j1].offset).length();
-  const l2 = new Vector3(...RIG_BY_NAME[j2].offset).length();
+  const l1 = new Vector3(...prof.offset[j1]).length();
+  const l2 = new Vector3(...prof.offset[j2]).length();
   const s = isLeg(limb) ? 1 : -1;
 
   const toT = target.clone().sub(P0);
@@ -225,7 +232,7 @@ const round = (n: number) => Math.round(n * 1e4) / 1e4;
 export function reachWorld(o: SceneObject, limb: Limb, worldTarget: Vec3, opts: { pole?: Vec3; poleAngle?: number; keepEnd?: boolean } = {}) {
   const local = worldToLocal(o, worldTarget);
   const pole = opts.pole ? worldToLocal(o, opts.pole) : undefined;
-  const r = solveLimb(o.pose, o.hipsPos, limb, local, { pole, poleAngle: opts.poleAngle, keepEnd: opts.keepEnd });
+  const r = solveLimb(o.pose, o.hipsPos, limb, local, { pole, poleAngle: opts.poleAngle, keepEnd: opts.keepEnd, profile: profileOf(o) });
   const c = clampJoints(r.joints);
   const joints: Partial<Record<JointName, Vec3>> = {};
   for (const [j, v] of Object.entries(c.joints) as [JointName, Vec3][]) joints[j] = [round(v[0]), round(v[1]), round(v[2])];
@@ -246,4 +253,23 @@ export function applyPins(o: SceneObject): SceneObject {
     pose = { ...pose, ...r.joints };
   }
   return { ...o, pose };
+}
+
+/** Height of a contact joint's center above the floor surface it rests on (meters, rig units of the body). */
+export function contactClearance(c: GroundContact, profile: BodyProfile): number {
+  if (c.kind === 'sole') return profile.ankleHeight;
+  if (c.kind === 'hand') return 0.03 * profile.mesh[c.joint];
+  return RIG_BY_NAME[c.joint].ball * profile.mesh[c.joint];
+}
+
+/** Heights above the floor of the contact points of a pose (hips translation included). */
+export function contactHeights(pose: Pose, hipsPos: Vec3, profile: BodyProfile, contacts: GroundContact[]): number[] {
+  const F = fk(pose, hipsPos, profile);
+  return contacts.map((c) => F[c.joint].p.y - contactClearance(c, profile));
+}
+
+/** hipsPos (adult units) that puts the lowest contact exactly on the floor; x and z are kept. */
+export function groundHipsPos(pose: Pose, hipsPos: Vec3, profile: BodyProfile, contacts: GroundContact[]): Vec3 {
+  const low = Math.min(...contactHeights(pose, [hipsPos[0], 0, hipsPos[2]], profile, contacts));
+  return [hipsPos[0], Math.round((-low / profile.hipsScale) * 1e4) / 1e4, hipsPos[2]];
 }

@@ -2,7 +2,7 @@ import { TransformControls } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import { useEffect, useRef, useState } from 'react';
 import { Euler, type Object3D } from 'three';
-import { RIG_BY_NAME } from '../core/rig';
+import { profileOf } from '../core/body';
 import type { Vec3 } from '../core/types';
 import { useStore, type Mode } from '../store';
 import { drag } from './shared';
@@ -50,8 +50,11 @@ export function Gizmo() {
     const d = useStore.getState().dispatch;
     if (jointMode && sel.joint) {
       if (m === 'translate') {
-        const off = RIG_BY_NAME.hips.offset;
-        d({ type: 'joint_set', object: objectId, joint: 'hips', position: v3(target.position.x - off[0], target.position.y - off[1], target.position.z - off[2]) });
+        const ob = useStore.getState().project.objects.find((x) => x.id === objectId);
+        const prof = ob ? profileOf(ob) : profileOf({ character: '', body: undefined });
+        const off = prof.offset.hips;
+        const k = prof.hipsScale; // hipsPos is stored in adult units
+        d({ type: 'joint_set', object: objectId, joint: 'hips', position: v3((target.position.x - off[0]) / k, (target.position.y - off[1]) / k, (target.position.z - off[2]) / k) });
       } else {
         const e = new Euler().setFromQuaternion(target.quaternion, 'XYZ');
         d({ type: 'joint_set', object: objectId, joint: sel.joint, rotation: v3(e.x * R2D, e.y * R2D, e.z * R2D) });

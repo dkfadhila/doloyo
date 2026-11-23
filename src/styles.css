@@ -378,3 +378,13 @@ input[type='checkbox'] { accent-color: var(--accent); }
 .md table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 12px; }
 .md th, .md td { text-align: left; vertical-align: top; padding: 4px 6px; border-bottom: 1px solid var(--line); }
 .md th { color: var(--muted); font-weight: 600; }
+
+/* body size (Inspector) and quick add (Outliner) */
+.body-seg { display: flex; width: 100%; }
+.body-seg .btn { flex: 1; padding: 0 4px; min-width: 0; }
+.body-height { gap: 6px; }
+.body-height .seg { flex: none; }
+.body-m { min-width: 46px; text-align: right; color: var(--text); font-size: 11px; }
+input[type='range'].slider { flex: 1; min-width: 40px; height: 16px; accent-color: var(--accent); background: transparent; }
+.menu-label { padding: 2px 8px; }
+.preset-note { padding: 4px 8px 2px; }

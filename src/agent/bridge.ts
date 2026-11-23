@@ -1,3 +1,4 @@
+import { bodyHeight, genderOf } from '../core/body';
 import { applyClip } from '../anim/apply';
 import { isLoop, listClips, searchClips } from '../anim/library';
 import { charactersReady } from '../characters/loader';
@@ -42,7 +43,7 @@ function summarizeObject(o: SceneObject) {
     id: o.id,
     name: o.name,
     kind: o.kind,
-    ...(o.kind === 'mannequin' ? { character: o.character, material: o.material } : {}),
+    ...(o.kind === 'mannequin' ? { character: o.character, material: o.material, body: o.body ?? { preset: 'dewasa' }, height: r3(bodyHeight(o.body, genderOf(o))) } : {}),
     position: rv(o.position),
     ...(o.kind === 'camera' ? { target: rv(o.target), fov: r3(o.fov) } : { rotation: rv(o.rotation), scale: rv(o.scale) }),
   };

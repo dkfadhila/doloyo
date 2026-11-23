@@ -2,6 +2,7 @@ import { OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
 import { MOUSE } from 'three';
+import { profileOf } from '../core/body';
 import { useStore } from '../store';
 import { CameraObject, ViewCamera } from './CameraObject';
 import { Floor } from './Floor';
@@ -38,7 +39,7 @@ function FocusRig() {
     if (!tick || !controls) return;
     const s = useStore.getState();
     const o = s.project.objects.find((x) => x.id === s.selection.object);
-    if (o) controls.target.set(o.position[0], o.position[1] + (o.kind === 'mannequin' ? 0.95 : 0), o.position[2]);
+    if (o) controls.target.set(o.position[0], o.position[1] + (o.kind === 'mannequin' ? profileOf(o).hipsY : 0), o.position[2]);
     else controls.target.set(0, 0.9, 0);
     controls.update();
   }, [tick, controls]);

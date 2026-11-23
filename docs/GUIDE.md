@@ -130,7 +130,22 @@ Di dialog **Export**:
 
 ## Preset scene
 
-Di Outliner, ikon orang banyak membuka **Scene presets**: **Duo** (2), **Trio** (3), **Group of 5**. Boneka baru berjajar dalam busur menghadap penonton (ujung sedikit maju dan menoleh ke tengah), seperti formasi dance crew. Pilih **Character** untuk semua boneka baru dan centang **Replace existing mannequins** kalau mau mengganti isi scene. Satu langkah undo. Agent: perintah `scene_preset`.
+Di Outliner, ikon orang banyak membuka **Scene presets**: **Duo** (2), **Trio** (3), **Group of 5**, dan **Keluarga** (ayah, anak, bayi yang duduk, ibu). Boneka baru berjajar dalam busur menghadap penonton (ujung sedikit maju dan menoleh ke tengah), seperti formasi dance crew. Secara default isinya campuran cewek dan cowok (bergantian Mannequin F dan M); pilih **Character** kalau mau satu model untuk semua, dan centang **Replace existing mannequins** kalau mau mengganti isi scene. Satu langkah undo. Agent: perintah `scene_preset`.
+
+## Ukuran tubuh
+
+Setiap manekin punya ukuran tubuh. Di Inspector, bagian **Body**:
+
+- **Bayi / Kecil / Anak / Remaja / Dewasa**: pilih ukuran. Bayi (kecil) kira-kira 12 bulan, 0,75 m, kepala besar, leher pendek, tangan dan kaki pendek. Anak kira-kira 6-7 tahun, 1,20 m. Remaja 1,62 m (cewek 1,58 m). Dewasa 1,75 m (cewek 1,65 m) adalah tampilan asli.
+- **Height**: slider ±10% dari tinggi preset; angkanya (meter) tampil di sebelahnya. Geser slider untuk menyetel, satu geseran = satu langkah undo. **Reset height** mengembalikan ke 1,0.
+- **M / F**: cowok atau cewek. Perbedaannya halus saja (bahu sedikit lebih sempit), tidak pernah bentuk dada atau pinggul. Dewasa cewek memakai Mannequin F; ukuran lain memakai manekin netral (Mannequin M) untuk kedua gender, supaya anak dan remaja tampil sebagai manekin seni yang netral.
+- Karakter Superhero hanya punya Remaja dan Dewasa; tombol Bayi dan Anak dinonaktifkan.
+
+Di menu **+** Outliner ada tambah cepat untuk 8 varian: Bayi cowok, Bayi cewek, Anak cowok, Anak cewek, Remaja cowok, Remaja cewek, Dewasa cowok, Dewasa cewek.
+
+Semua ikut ukuran tubuh: IK, pin kaki, Copy Dance (kunci kaki), onion skin, volume klik, export GLB dan BVH. Kaki selalu menapak lantai. Pose dan keyframe hanyalah rotasi, jadi animasi library dan mocap bisa dipakai di ukuran mana pun. Geseran **hips** (offset hips) disimpan dalam satuan dewasa dan otomatis diskalakan ke tinggi tubuh, jadi lompat atau jongkok tetap menapak. Mengubah ukuran tubuh melepas pin kaki (undo mengembalikannya).
+
+Pose untuk bayi (di Pose > Preset, bisa dipakai di ukuran apa pun): **duduk** (duduk di lantai, kaki ke depan), **merangkak** (tangan dan lutut di lantai), **berdiri_pegangan** (berdiri, kedua tangan terangkat seperti berpegangan). Tinggi hips disetel otomatis dari tubuhnya supaya kaki, lutut, dan tangan menyentuh lantai; dirancang untuk Bayi (di tubuh lebih besar, tangan saat merangkak bisa melayang). Agent: `object_set_body`, atau `body` pada `object_add` dan `scene_preset`.
 
 ## Undo / redo
 

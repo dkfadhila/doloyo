@@ -1,9 +1,10 @@
-import { applyPins, endWorld, FOOT_LIMB, hasPins, LEG_FOOT, LIMB_JOINTS, parseLimb, reachWorld } from './ik';
+import { bodyCharacterError, characterForBody, cleanBody, clampHeightScale, genderOf, HEIGHT_SCALE_MAX, HEIGHT_SCALE_MIN, isBodyPreset, profileOf } from './body';
+import { applyPins, endWorld, FOOT_LIMB, groundHipsPos, hasPins, LEG_FOOT, LIMB_JOINTS, parseLimb, reachWorld } from './ik';
 import { channelsFor, evaluateObject, evaluateProject, getChannel, isChannel, parseEasing, setChannel } from './interpolate';
 import { POSES, resolvePose } from './poses';
 import { clampRotation, emptyPose, isJoint, JOINTS, mirrorJointName, mirrorRotation } from './rig';
-import type { Easing, JointName, Keyframe, Limb, ObjectKind, Pins, Pose, PoseData, Project, SceneObject, Vec3 } from './types';
-import { BUILTIN_CHARACTER_IDS, DEFAULT_CHARACTER, isCharacterId, MATERIAL_MODES, OBJECT_KINDS, PROCEDURAL_CHARACTER, type MaterialMode } from './types';
+import type { BodySpec, Easing, Gender, JointName, Keyframe, Limb, ObjectKind, Pins, Pose, PoseData, Project, SceneObject, Vec3 } from './types';
+import { BODY_PRESETS, BUILTIN_CHARACTER_IDS, DEFAULT_CHARACTER, isCharacterId, MATERIAL_MODES, OBJECT_KINDS, PROCEDURAL_CHARACTER, type MaterialMode } from './types';
 
 export type Target = string | string[];
 
@@ -28,16 +29,27 @@ export interface ClipKey {
   value: Vec3;
   easing: Easing;
 }
-export type ScenePreset = 'duo' | 'trio' | 'group5';
+export type ScenePreset = 'duo' | 'trio' | 'group5' | 'keluarga';
 export const SCENE_PRESETS: Record<ScenePreset, { count: number; spacing: number; label: string }> = {
   duo: { count: 2, spacing: 1.0, label: 'Duo' },
   trio: { count: 3, spacing: 0.95, label: 'Trio' },
   group5: { count: 5, spacing: 0.85, label: 'Group of 5' },
+  keluarga: { count: 4, spacing: 0.95, label: 'Keluarga' },
 };
 
+/** Members of the "keluarga" preset, left to right: father, child, baby (sitting), mother. */
+export const FAMILY: { preset: BodySpec['preset']; gender: Gender; pose?: string }[] = [
+  { preset: 'dewasa', gender: 'm' },
+  { preset: 'pendek', gender: 'f' },
+  { preset: 'kecil', gender: 'm', pose: 'duduk' },
+  { preset: 'dewasa', gender: 'f' },
+];
+
 export type Command =
-  | { type: 'object_add'; kind: ObjectKind; name?: string; id?: string; position?: Vec3; character?: string }
+  | { type: 'object_add'; kind: ObjectKind; name?: string; id?: string; position?: Vec3; character?: string; body?: BodySpec }
   | { type: 'object_set_character'; object: string; character: string; material?: MaterialMode }
+  | { type: 'object_set_body'; object: string; preset?: BodySpec['preset']; heightScale?: number; gender?: Gender }
+  | { type: 'body_restore'; object: string; body: BodySpec | null; character: string; pins: Pins } // internal
   | { type: 'object_remove'; object: string }
   | { type: 'object_restore'; object: SceneObject; index: number } // internal (inverse of object_remove)
   | { type: 'object_transform'; object: string; name?: string; position?: Vec3; rotation?: Vec3; scale?: Vec3 }
@@ -59,7 +71,7 @@ export type Command =
   | { type: 'ik_pin'; object: string; limb: Limb | 'L_foot' | 'R_foot'; pinned: boolean; position?: Vec3 }
   | { type: 'ik_bake'; object: string; start?: number; end?: number; unpin?: boolean }
   | { type: 'camera_set'; object?: string; position?: Vec3; target?: Vec3; fov?: number }
-  | { type: 'scene_preset'; preset: ScenePreset; character?: string; clear?: boolean }
+  | { type: 'scene_preset'; preset: ScenePreset; character?: string; clear?: boolean; body?: BodySpec }
   | { type: 'pins_restore'; object: string; pins: Pins } // internal
   | { type: 'track_restore'; object: string; channel: string; keys: Keyframe[] } // internal
   | { type: 'timeline_set'; fps?: number; duration?: number; loop?: boolean }
@@ -67,7 +79,7 @@ export type Command =
   | { type: 'batch'; commands: Command[] };
 
 /** Commands that exist only as undo inverses; never accept them from outside. */
-export const INTERNAL_COMMANDS = ['object_restore', 'track_restore', 'pose_lib_restore', 'pins_restore'];
+export const INTERNAL_COMMANDS = ['object_restore', 'track_restore', 'pose_lib_restore', 'pins_restore', 'body_restore'];
 
 export interface CommandResult {
   project: Project;
@@ -100,8 +112,9 @@ export const KIND_LABEL: Record<ObjectKind, string> = {
 
 export const CAMERA_DEFAULT = { position: [2.8, 1.6, 3.8] as Vec3, target: [0, 0.9, 0] as Vec3, fov: 40 };
 
-export function createObject(kind: ObjectKind, name: string, id: string, position: Vec3, character?: string): SceneObject {
+export function createObject(kind: ObjectKind, name: string, id: string, position: Vec3, character?: string, body?: BodySpec): SceneObject {
   return {
+    ...(body ? { body } : {}),
     id, kind, name, position,
     rotation: [0, 0, 0], scale: [1, 1, 1],
     pose: emptyPose(), hipsPos: [0, 0, 0], tracks: {},
@@ -145,6 +158,14 @@ function cleanPins(p: unknown): Pins {
   return out;
 }
 
+/** Keep a valid body spec on mannequins, drop anything else (old projects have none and stay unchanged). */
+function normalizeBody(out: SceneObject, raw: SceneObject): SceneObject {
+  const body = out.kind === 'mannequin' ? cleanBody(raw.body) : undefined;
+  if (body) out.body = body;
+  else delete out.body;
+  return out;
+}
+
 /** Fill gaps in a loaded project (forward-compat). Throws on garbage. */
 export function normalizeProject(raw: unknown): Project {
   const r = raw as Partial<Project> | null;
@@ -157,7 +178,7 @@ export function normalizeProject(raw: unknown): Project {
     duration: p.duration > 0 ? p.duration : 4,
     loop: !!p.loop,
     time: p.time >= 0 ? p.time : 0,
-    objects: p.objects.map((o) => ({
+    objects: p.objects.map((o) => normalizeBody({
       ...createObject(o.kind, o.name ?? 'Object', o.id ?? uid(), o.position ?? [0, 0, 0], PROCEDURAL_CHARACTER),
       ...o,
       character: typeof o.character === 'string' && o.character ? o.character : PROCEDURAL_CHARACTER,
@@ -167,7 +188,7 @@ export function normalizeProject(raw: unknown): Project {
       pins: cleanPins(o.pins),
       target: Array.isArray(o.target) && o.target.length === 3 && o.target.every((n) => typeof n === 'number') ? o.target : [...CAMERA_DEFAULT.target],
       fov: typeof o.fov === 'number' && o.fov > 0 && o.fov < 180 ? o.fov : CAMERA_DEFAULT.fov,
-    })),
+    }, o)),
     customPoses: p.customPoses && typeof p.customPoses === 'object' ? { ...p.customPoses } : {},
   };
 }
@@ -256,6 +277,51 @@ function repin(before: Project, after: Project): Project {
     return n;
   });
   return changed ? { ...after, objects } : after;
+}
+
+// ---------- body helpers ----------
+
+interface BodyChange {
+  preset?: unknown;
+  heightScale?: unknown;
+  gender?: unknown;
+}
+
+/** Validate a body change from outside (clear errors, no silent clamping). */
+function checkBodyChange(c: BodyChange, what = 'body'): { preset?: BodySpec['preset']; heightScale?: number; gender?: Gender } {
+  const out: { preset?: BodySpec['preset']; heightScale?: number; gender?: Gender } = {};
+  if (c.preset !== undefined) {
+    if (!isBodyPreset(c.preset)) fail(`${what}.preset must be one of ${BODY_PRESETS.join(', ')}`);
+    out.preset = c.preset as BodySpec['preset'];
+  }
+  if (c.heightScale !== undefined) {
+    const h = c.heightScale;
+    if (typeof h !== 'number' || !isFinite(h) || h < HEIGHT_SCALE_MIN - 1e-9 || h > HEIGHT_SCALE_MAX + 1e-9) fail(`${what}.heightScale must be a number between ${HEIGHT_SCALE_MIN} and ${HEIGHT_SCALE_MAX}`);
+    out.heightScale = clampHeightScale(h as number);
+  }
+  if (c.gender !== undefined) {
+    if (c.gender !== 'm' && c.gender !== 'f') fail(`${what}.gender must be "m" or "f"`);
+    out.gender = c.gender as Gender;
+  }
+  return out;
+}
+
+/**
+ * New body + character for a change. Built-in mannequins switch mesh with the body (kids and teens use the neutral
+ * mannequin-m mesh, only the adult female uses mannequin-f); superheroes reject the small presets.
+ */
+function resolveBody(character: string, cur: BodySpec | undefined, ch: { preset?: BodySpec['preset']; heightScale?: number; gender?: Gender }): { body: BodySpec | undefined; character: string } {
+  const preset = ch.preset ?? cur?.preset ?? 'dewasa';
+  const gender = ch.gender ?? genderOf({ character, body: cur });
+  const hs = ch.heightScale ?? cur?.heightScale ?? 1;
+  const err = bodyCharacterError(character, preset);
+  if (err) fail(err);
+  const nextChar = characterForBody(character, preset, gender);
+  let body: BodySpec | undefined = { preset };
+  if (Math.abs(hs - 1) > 1e-6) body.heightScale = hs;
+  if (genderOf({ character: nextChar, body }) !== gender) body.gender = gender;
+  if (preset === 'dewasa' && body.heightScale === undefined && body.gender === undefined) body = undefined;
+  return { body, character: nextChar };
 }
 
 // ---------- main ----------
@@ -369,7 +435,17 @@ function exec(p: Project, c: Command): CommandResult {
           ? ([...CAMERA_DEFAULT.position] as Vec3)
           : ([slot, c.kind === 'mannequin' ? 0 : 0.25, 0] as Vec3);
       if (c.character !== undefined && !isCharacterId(c.character)) fail(`Unknown character: ${c.character} (built-in: ${BUILTIN_CHARACTER_IDS.join(', ')}; imported: custom:<id>)`);
-      const obj = createObject(c.kind, name, id, position, c.kind === 'mannequin' ? c.character : undefined);
+      let character = c.kind === 'mannequin' ? c.character : undefined;
+      let body: BodySpec | undefined;
+      if (c.body !== undefined) {
+        if (c.kind !== 'mannequin') fail('body only applies to mannequins');
+        const ch = checkBodyChange(c.body as BodyChange);
+        if (!ch.preset) fail('body.preset is required');
+        const r = resolveBody(character ?? DEFAULT_CHARACTER, undefined, ch);
+        body = r.body;
+        character = r.character;
+      }
+      const obj = createObject(c.kind, name, id, position, character, body);
       return {
         project: { ...p, objects: [...p.objects, obj] },
         inverse: { type: 'object_remove', object: id },
@@ -381,8 +457,31 @@ function exec(p: Project, c: Command): CommandResult {
       const o = mannequin(p, c.object);
       if (!isCharacterId(c.character)) fail(`Unknown character: ${String(c.character)} (built-in: ${BUILTIN_CHARACTER_IDS.join(', ')}; imported: custom:<id>)`);
       if (c.material !== undefined && !MATERIAL_MODES.includes(c.material)) fail(`material must be one of ${MATERIAL_MODES.join(', ')}`);
+      const preset = o.body?.preset ?? 'dewasa';
+      const bodyErr = bodyCharacterError(c.character, preset);
+      if (bodyErr) fail(bodyErr);
+      if (c.character === 'mannequin-f' && preset !== 'dewasa') fail(`Mannequin F is the adult female mesh and is only used with the dewasa body (this one is "${preset}"). Use mannequin-m (neutral) or set the body to dewasa first.`);
       const inv: Command = { type: 'object_set_character', object: o.id, character: o.character, material: o.material };
       return { project: putObject(p, { ...o, character: c.character, material: c.material ?? o.material }), inverse: inv, applied: c };
+    }
+
+    case 'object_set_body': {
+      const o = mannequin(p, c.object);
+      const ch = checkBodyChange(c);
+      if (ch.preset === undefined && ch.heightScale === undefined && ch.gender === undefined) fail('object_set_body needs preset, heightScale or gender');
+      const r = resolveBody(o.character, o.body, ch);
+      const next: SceneObject = { ...o, character: r.character, pins: {} }; // feet follow the new body: pins are dropped (undo restores them)
+      if (r.body) next.body = r.body;
+      else delete next.body;
+      return { project: putObject(p, next), inverse: { type: 'body_restore', object: o.id, body: o.body ? { ...o.body } : null, character: o.character, pins: { ...o.pins } }, applied: c };
+    }
+
+    case 'body_restore': {
+      const o = findObject(p, c.object);
+      const next: SceneObject = { ...o, character: c.character, pins: { ...c.pins } };
+      if (c.body) next.body = { ...c.body };
+      else delete next.body;
+      return { project: putObject(p, next), inverse: { type: 'body_restore', object: o.id, body: o.body ? { ...o.body } : null, character: o.character, pins: { ...o.pins } }, applied: c };
     }
 
     case 'object_remove': {
@@ -440,6 +539,9 @@ function exec(p: Project, c: Command): CommandResult {
         hp = c.pose.hipsPos ? hipsPos : o.hipsPos;
       }
       for (const j of JOINTS) np[j] = clampRotation(j, np[j]);
+      const data = typeof c.pose === 'string' ? (POSES[c.pose] ?? p.customPoses[c.pose]) : c.pose;
+      // grounded presets (duduk, merangkak, ...): solve the hips height from the body so the contacts rest on the floor
+      if (!c.partial && data?.ground?.length) hp = groundHipsPos(np, hp, profileOf(o), data.ground);
       return { project: putObject(p, { ...o, pose: np, hipsPos: hp }), inverse: fullPoseCmd(o), applied: c };
     }
 
@@ -734,12 +836,39 @@ function exec(p: Project, c: Command): CommandResult {
     case 'scene_preset': {
       const def = SCENE_PRESETS[c.preset] ?? fail('preset must be one of ' + Object.keys(SCENE_PRESETS).join(', '));
       if (c.character !== undefined && !isCharacterId(c.character)) fail('Unknown character: ' + String(c.character));
+      let bodyIn: ReturnType<typeof checkBodyChange> | undefined;
+      if (c.body !== undefined) {
+        if (c.preset === 'keluarga') fail('The keluarga preset has fixed body sizes (2 adults, 1 anak, 1 bayi); body cannot be set');
+        bodyIn = checkBodyChange(c.body as BodyChange);
+        const bp = bodyIn.preset ?? fail('body.preset is required');
+        const err = c.character ? bodyCharacterError(c.character, bp) : null;
+        if (err) fail(err);
+      }
       const subs: Command[] = [];
       if (c.clear) for (const o of p.objects) if (o.kind === 'mannequin') subs.push({ type: 'object_remove', object: o.id });
-      formation(c.preset).forEach((f) => {
+      formation(c.preset).forEach((f, i) => {
         const id = uid();
-        subs.push({ type: 'object_add', kind: 'mannequin', id, position: f.position, ...(c.character ? { character: c.character } : {}) });
+        // mixed by default: alternate female / male mannequins (an explicit character applies to everyone)
+        const gender: Gender = i % 2 === 0 ? 'f' : 'm';
+        let character: string | undefined = c.character;
+        let body: BodySpec | undefined;
+        let pose: string | undefined;
+        if (c.preset === 'keluarga') {
+          const m = FAMILY[i];
+          const small = m.preset === 'kecil' || m.preset === 'pendek';
+          const base = c.character && !small ? c.character : m.gender === 'f' ? 'mannequin-f' : 'mannequin-m';
+          const r = resolveBody(base, undefined, { preset: m.preset, gender: m.gender });
+          character = r.character;
+          body = r.body;
+          pose = m.pose;
+        } else if (bodyIn) {
+          const r = resolveBody(c.character ?? (gender === 'f' ? 'mannequin-f' : 'mannequin-m'), undefined, bodyIn);
+          character = r.character;
+          body = r.body;
+        } else if (!c.character) character = gender === 'f' ? 'mannequin-f' : 'mannequin-m';
+        subs.push({ type: 'object_add', kind: 'mannequin', id, position: f.position, ...(character ? { character } : {}), ...(body ? { body } : {}) });
         subs.push({ type: 'object_transform', object: id, rotation: [0, f.yaw, 0] });
+        if (pose) subs.push({ type: 'pose_apply', object: id, pose });
       });
       void def;
       return exec(p, { type: 'batch', commands: subs });
@@ -781,12 +910,13 @@ function exec(p: Project, c: Command): CommandResult {
 }
 
 export const COMMAND_HELP = `Motion Doll command API. dispatch({type, ...args}). Objects are referenced by id or name. Rotations are Euler XYZ degrees. Times are seconds (or use frame).
-object_add {kind: mannequin|cube|sphere|cylinder|camera, name?, position?, character?}
+object_add {kind: mannequin|cube|sphere|cylinder|camera, name?, position?, character?, body?: {preset, heightScale?, gender?}}
 object_set_character {object, character: doll-procedural|mannequin-f|mannequin-m|superhero-m|superhero-f|custom:<id>, material?: doll|original}
+object_set_body {object, preset?: kecil|pendek|remaja|dewasa, heightScale?: 0.9..1.1, gender?: m|f}   (body size; kecil = baby 0.75 m, pendek = child 1.20 m, remaja = teen 1.62 m, dewasa = adult; superheroes: remaja/dewasa only)
 object_remove {object}
 object_transform {object, name?, position?, rotation?, scale?}
 joint_set {object, joint, rotation?: [x,y,z], position?: [x,y,z] (hips only)}
-pose_apply {object, pose: "stand"|"t_pose"|"crouch"|"kneel"|"point"|"wave_up"|<custom pose name> | {joints:{...}, hipsPos?}, partial?}
+pose_apply {object, pose: "stand"|"t_pose"|"crouch"|"kneel"|"point"|"wave_up"|"duduk"|"merangkak"|"berdiri_pegangan"|<custom pose name> | {joints:{...}, hipsPos?}, partial?}
 pose_save {object, name}   (saves the current pose to the project's pose library)
 pose_delete {name}
 pose_mirror {object, from: "L"|"R"}
@@ -802,7 +932,7 @@ ik_reach {object, limb: L_arm|R_arm|L_leg|R_leg, target: [x,y,z] (world), pole?:
 ik_pin {object, limb: L_leg|R_leg|L_foot|R_foot, pinned: boolean, position?: [x,y,z]}   (pin a foot to a world position)
 ik_bake {object, start?, end?, unpin?}   (key the pinned legs for every frame, then remove the pins)
 camera_set {object?, position?, target?, fov?}   (the render camera; created when missing; keyable like other objects)
-scene_preset {preset: duo|trio|group5, character?, clear?}   (adds dolls in an arc formation)
+scene_preset {preset: duo|trio|group5|keluarga, character?, clear?, body?}   (adds dolls in an arc formation; mixed F/M by default; keluarga = 2 adults, 1 anak, 1 bayi sitting)
 timeline_set {fps?, duration?, loop?}
 playhead_seek {time?|frame?}
 batch {commands: [...]}`;

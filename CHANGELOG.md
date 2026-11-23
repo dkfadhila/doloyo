@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0 (body sizes)
+
+- Body sizes for mannequins: Bayi / Kecil (baby, about 12 months, 0.75 m), Anak (child, about 6-7 years, 1.20 m), Remaja (teenager, 1.62 m, F 1.58 m) and Dewasa (adult, the original look), for male and female, plus a +-10% height fine-tune per object.
+- One proportion profile drives everything: FK, IK, foot pins, Copy Dance foot lock, onion ghosts, pick volumes, GLB and BVH export and the skinned mannequins (bone scales and offsets, relative head size, feet kept on the floor). Pose data stays rotations, so keys, baked clips and mocap work on any body; hips translation keys are stored in adult units and scaled by the body.
+- Child presets are neutral art mannequins: Kecil and Anak (and Remaja) use the neutral Mannequin M mesh for both genders; gender only nudges the shoulder width. Only Dewasa F uses Mannequin F. Superheroes allow Remaja and Dewasa only.
+- Command and MCP tool `object_set_body`; `object_add` and `scene_preset` accept `body`; `scene_get` lists each mannequin body and height.
+- Three baby poses that solve the hips height from the body: `duduk` (sitting), `merangkak` (crawling), `berdiri_pegangan` (standing, holding on).
+- Scene presets are mixed gender by default (alternating F and M) and there is a new `keluarga` preset (2 adults, 1 anak, 1 sitting bayi).
+- Inspector Body section (segmented size, height slider in meters, M/F switch) and Outliner quick add for the 8 variants (Bayi, Anak, Remaja, Dewasa; cowok and cewek).
+
 ## 0.4.0 (release preparation)
 
 - Static hosting: configurable base path (`VITE_BASE`), hashed bundles in `/bundle`, deploy configs for Vercel, Netlify and Cloudflare Pages (`vercel.json`, `netlify.toml`, `public/_headers`), GitHub Actions CI and a manual GitHub Pages workflow.

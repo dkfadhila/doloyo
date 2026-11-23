@@ -1,6 +1,6 @@
 {
   "name": "motion-doll-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "MCP stdio server and local WebSocket bridge that lets AI agents (Claude Code, Claude Desktop) pose and animate dolls in Motion Doll Studio",
   "keywords": [
     "mcp",

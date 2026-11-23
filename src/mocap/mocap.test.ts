@@ -3,6 +3,7 @@ import { Vector3 } from 'three';
 import { emptyPose } from '../core/rig';
 import type { JointName, Pose } from '../core/types';
 import { bodyPointsFromFK, rigFK, segmentDirections } from '../retarget/solver';
+import { bodyProfile } from '../core/body';
 import { fillGaps, MP, trackToSamples, worldToPoints, type Detection, type LM, type Track } from './convert';
 import { OneEuro } from './oneEuro';
 import { descriptor, matchDetections, type TrackState } from './tracker';
@@ -176,6 +177,28 @@ describe('MediaPipe conversion', () => {
       expect(low).toBeCloseTo(0.04, 2);
       expect(s.hipsPos[0]).toBeCloseTo(0, 6); // in place
     });
+  });
+
+  it('foot lock keeps the lowest foot of a SMALL body on its floor (hipsPos stays in adult units)', () => {
+    const base = emptyPose();
+    const poses: Pose[] = [0, 1, 2].map((i) => {
+      const p = { ...base } as Pose;
+      p.R_hip = [-30 - i * 20, 0, -5];
+      p.R_knee = [30 + i * 30, 0, 0];
+      return p;
+    });
+    const frames = new Map<number, Detection>();
+    poses.forEach((p, i) => frames.set(i, landmarksFromPoints(p)));
+    const track: Track = { id: 1, color: '#fff', frames, first: 0, last: poses.length - 1 };
+    for (const preset of ['kecil', 'pendek', 'remaja'] as const) {
+      const prof = bodyProfile(preset);
+      const out = trackToSamples(track, { width: 640, height: 480, fps: 30, frames: 3, duration: 0.1 }, { fps: 30, minCutoff: 1000, beta: 0, footLock: true, inPlace: true, mirror: false, start: 0, profile: prof });
+      out.forEach((s, i) => {
+        const pts = bodyPointsFromFK(rigFK(s.pose, s.hipsPos, prof));
+        const low = Math.min(pts.ankleL[1], pts.ankleR[1], pts.toeL![1], pts.toeR![1]);
+        expect(low, `${preset} frame ${i}`).toBeCloseTo(0.04 * prof.f.foot, 2);
+      });
+    }
   });
 
   it('fills short gaps by interpolation and holds across long gaps', () => {

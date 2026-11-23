@@ -28,6 +28,18 @@ export const BUILTIN_CHARACTER_IDS = ['doll-procedural', 'mannequin-f', 'mannequ
 export const CUSTOM_PREFIX = 'custom:';
 export const isCharacterId = (id: unknown): id is string => typeof id === 'string' && (BUILTIN_CHARACTER_IDS.includes(id) || (id.startsWith(CUSTOM_PREFIX) && id.length > CUSTOM_PREFIX.length));
 
+/** Body-size presets: kecil = baby/toddler, pendek = child (~6-7 years), remaja = teenager, dewasa = adult (default look). */
+export const BODY_PRESETS = ['kecil', 'pendek', 'remaja', 'dewasa'] as const;
+export type BodyPreset = (typeof BODY_PRESETS)[number];
+export type Gender = 'm' | 'f';
+export interface BodySpec {
+  preset: BodyPreset;
+  /** Fine-tune of the preset height, 0.9 .. 1.1 (default 1). */
+  heightScale?: number;
+  /** Subtle proportion difference only (never chest/hip shape). Default: derived from the character id. */
+  gender?: Gender;
+}
+
 export type JointName =
   | 'hips' | 'spine' | 'chest' | 'neck' | 'head'
   | 'L_shoulder' | 'L_elbow' | 'L_wrist'
@@ -67,15 +79,28 @@ export interface SceneObject {
   material: MaterialMode;
   /** Pinned feet (world position of the ankle joint). Mannequin only; the legs are solved with IK to keep them there. */
   pins: Pins;
+  /** Body size (mannequin only). Missing = dewasa, heightScale 1 (the original proportions). */
+  body?: BodySpec;
   /** Render camera only: look-at point (meters) and vertical field of view (degrees). `position` is the eye. */
   target: Vec3;
   fov: number;
+}
+
+/** A joint that must touch the floor in a grounded pose: ball = the joint ball radius, sole = foot height, hand = palm thickness. */
+export interface GroundContact {
+  joint: JointName;
+  kind: 'ball' | 'sole' | 'hand';
 }
 
 /** Pose preset data: joint rotations (degrees) plus optional hips offset. */
 export interface PoseData {
   joints: Partial<Record<JointName, Vec3>>;
   hipsPos?: Vec3;
+  /**
+   * Built-in grounded poses (sitting, crawling): when applied, the hips height is solved from the object's body so the
+   * listed joints rest on the floor (the lowest one exactly). The result is plain pose data again (hipsPos).
+   */
+  ground?: GroundContact[];
 }
 
 export interface Project {

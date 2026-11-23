@@ -1,4 +1,5 @@
 import { bakeCommand, thin } from '../core/bake';
+import { profileOf } from '../core/body';
 import { createObject, uid, type Command } from '../core/commands';
 import type { SceneObject } from '../core/types';
 import { useStore } from '../store';
@@ -82,7 +83,7 @@ export function applyTracks(a: VideoAnalysis, assign: Assignment[], o: ApplyTrac
     }
     if (used.has(obj.id)) throw new Error(`${obj.name} is assigned to more than one track`);
     used.add(obj.id);
-    const samples = trackToSamples(track, a.video, conv);
+    const samples = trackToSamples(track, a.video, { ...conv, profile: profileOf(obj) });
     if (!samples.length) throw new Error(`Track ${track.id} has no usable frames`);
     const kept = thin(samples, o.keyEvery ?? 1);
     commands.push(bakeCommand(project, obj, kept));

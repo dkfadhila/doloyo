@@ -1,3 +1,4 @@
+import { profileOf } from '../core/body';
 import { zipSync } from 'fflate';
 import { ArrayBufferTarget as Mp4Target, Muxer as Mp4Muxer } from 'mp4-muxer';
 import { PerspectiveCamera, Vector3, WebGLRenderer, type Light, type Object3D } from 'three';
@@ -232,6 +233,8 @@ async function loadSkin(o: SceneObject): Promise<SkinRig | null> {
   if (!def || def.kind === 'procedural') return null;
   try {
     const inst = await createSkinned(def.id);
+    const prof = profileOf(o);
+    inst.setBody(prof.identity ? null : prof);
     return { root: inst.root, prepare: (ob) => inst.setLook(ob.material, false), apply: (p, h) => inst.apply(p, h), dispose: () => inst.dispose() };
   } catch (e) {
     console.warn('[export] character failed to load, exporting the procedural doll instead', def.id, e);

@@ -152,7 +152,7 @@ Di Outliner, ikon orang banyak membuka **Scene presets**: **Duo** (2), **Trio** 
 
 Setiap manekin punya ukuran tubuh. Di Inspector, bagian **Body**:
 
-- **Bayi / Kecil / Anak / Remaja / Dewasa**: pilih ukuran. Bayi (kecil) kira-kira 12 bulan, 0,75 m, kepala besar, leher pendek, tangan dan kaki pendek. Anak kira-kira 6-7 tahun, 1,20 m. Remaja 1,62 m (cewek 1,58 m). Dewasa 1,75 m (cewek 1,65 m) adalah tampilan asli.
+- **Baby / Child / Teen / Adult** (Bayi / Anak / Remaja / Dewasa): pilih ukuran. Bayi (kecil) kira-kira 12 bulan, 0,75 m, kepala besar, leher pendek, tangan dan kaki pendek. Anak kira-kira 6-7 tahun, 1,20 m. Remaja 1,62 m (cewek 1,58 m). Dewasa 1,75 m (cewek 1,65 m) adalah tampilan asli.
 - **Height**: slider ±10% dari tinggi preset; angkanya (meter) tampil di sebelahnya. Geser slider untuk menyetel, satu geseran = satu langkah undo. **Reset height** mengembalikan ke 1,0.
 - **M / F**: cowok atau cewek. Perbedaannya halus saja (bahu sedikit lebih sempit), tidak pernah bentuk dada atau pinggul. Dewasa cewek memakai Mannequin F; ukuran lain memakai manekin netral (Mannequin M) untuk kedua gender, supaya anak dan remaja tampil sebagai manekin seni yang netral.
 - Karakter Superhero hanya punya Teen dan Adult; tombol Baby dan Child dinonaktifkan.

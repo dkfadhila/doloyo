@@ -12,6 +12,7 @@ import { useUi } from '../ui/uiStore';
 import { ballGeometry, BALL_JOINTS, dollParts } from './dollGeometry';
 import { ACCENT, BODY, D2R, drag, getLive, live, OBJECT_TINT, preview, registerApplier, type LiveState } from './shared';
 import { createSkinned, type SkinnedInstance } from './skinned';
+import { setSkinStatus } from './ready';
 
 const R2D = 180 / Math.PI;
 
@@ -168,6 +169,7 @@ export function Mannequin({ id, ghost }: { id: string; ghost?: Ghost }) {
     let dead = false;
     let made: SkinnedInstance | null = null;
     setLoad({ state: 'loading' });
+    if (!ghost) setSkinStatus(id, def.id, 'loading');
     createSkinned(def.id)
       .then((inst) => {
         if (dead) return inst.dispose();
@@ -180,6 +182,7 @@ export function Mannequin({ id, ghost }: { id: string; ghost?: Ghost }) {
         if (dead) return;
         const message = e instanceof Error ? e.message : String(e);
         console.warn('[character] load failed', def.id, e);
+        if (!ghost) setSkinStatus(id, def.id, 'error');
         useUi.getState().notify(`Could not load character "${def.label}": ${message}. Showing the procedural doll.`);
         setLoad({ state: 'error', message });
       });
@@ -278,6 +281,13 @@ export function Mannequin({ id, ghost }: { id: string; ghost?: Ghost }) {
   useEffect(() => {
     if (!ghost) apply(getLive());
   }, [apply, ghost, load, material, prof]);
+  // declared ready only after the committed render applied the retarget + pose (effects above ran first)
+  useEffect(() => {
+    if (ghost || !wantsSkin || !def) return;
+    if (load.state === 'ready' && load.inst.characterId === def.id) setSkinStatus(id, def.id, 'ready');
+    else if (load.state === 'error') setSkinStatus(id, def.id, 'error');
+  }, [ghost, wantsSkin, def, load, id]);
+  useEffect(() => () => setSkinStatus(id, '', null), [id]);
   useFrame(() => {
     if (drag.active) {
       if (!ghost) {

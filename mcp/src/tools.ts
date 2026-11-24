@@ -464,7 +464,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
     'anim_apply',
     {
       description:
-        'Bake a library clip onto mannequins as keyframes (ONE undo step). The clip is sampled on the Quaternius skeleton and converted to our 17-joint pose, so it works for every character type. Defaults: selected mannequin (else all), start at the playhead, speed 1, 1 loop, a key every frame, timeline extended if needed. Returns the keys added and the new duration.',
+        'Bake a library clip onto mannequins as keyframes (ONE undo step). The clip is sampled on the Quaternius skeleton and converted to our 17-joint pose, so it works for every character type. Defaults: selected mannequin (else all), start at the playhead, speed 1, 1 loop, a key every frame, timeline extended if needed. Keys of the written range are replaced, and the part after it of an EARLIER anim_apply run that overlaps it is dropped (a later clip supersedes the rest of an earlier one on the same joints; hand-made keys are kept). Use duration to cut a looped clip short. Returns the keys added and the new duration.',
       inputSchema: {
         clip: z.string().min(1).describe('Clip id or name from anim_list.'),
         objects: z.array(z.string()).optional().describe('Mannequin ids or names. Default: selected mannequin, else every mannequin.'),
@@ -475,6 +475,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
         mirror: z.boolean().optional().describe('Mirror left/right.'),
         inPlace: z.boolean().optional().describe('Remove horizontal hips travel (keep height).'),
         extend: z.boolean().optional().describe('Grow the timeline duration if the clip is longer. Default true.'),
+        duration: z.number().positive().max(3600).optional().describe('Trim the run to this many seconds from start: loops and clip keys past it are not written. Default: the full run (clip length x loops / speed).'),
       },
     },
     guard(async (args: Record<string, unknown>) => forward('anim_apply', args, RENDER_TIMEOUT_MS)) as never,

@@ -14,6 +14,12 @@ export interface BakeOptions {
   extend?: boolean;
   /** Keep only every Nth sample (the first and last are always kept). */
   every?: number;
+  /**
+   * Id of this bake run. The keys are tagged with it, and any EARLIER tagged run that overlaps the written range loses
+   * its keys after the range too (a later clip supersedes the rest of an earlier one on these channels; otherwise a looped
+   * idle keeps running behind a Death clip and the character stands back up). Untagged (hand-made) keys are never touched.
+   */
+  run?: string;
 }
 
 const EPS = 1e-3;
@@ -52,11 +58,30 @@ export function bakeCommand(project: Project, obj: SceneObject, samplesIn: BakeS
   const t1 = samples[samples.length - 1].t;
   const channels: string[] = [...JOINTS, 'hipsPos'];
   const commands: Command[] = channels.map((ch) => {
-    const old = (obj.tracks[ch] ?? []).filter((k) => k.t < t0 - EPS || k.t > t1 + EPS);
+    const existing = obj.tracks[ch] ?? [];
+    let superseded: Set<string> | null = null;
+    if (o.run) {
+      // earlier runs whose key range overlaps [t0, t1]
+      const ranges = new Map<string, [number, number]>();
+      for (const k of existing) {
+        if (!k.run || k.run === o.run) continue;
+        const r = ranges.get(k.run);
+        if (r) {
+          r[0] = Math.min(r[0], k.t);
+          r[1] = Math.max(r[1], k.t);
+        } else ranges.set(k.run, [k.t, k.t]);
+      }
+      for (const [id, [a, b]] of ranges) if (a <= t1 + EPS && b >= t0 - EPS) (superseded ??= new Set()).add(id);
+    }
+    const old = existing.filter((k) => {
+      if (k.t >= t0 - EPS && k.t <= t1 + EPS) return false;
+      return !(superseded && k.run && superseded.has(k.run) && k.t > t1);
+    });
     const mine: Keyframe[] = samples.map((s) => ({
       t: s.t,
       value: ch === 'hipsPos' ? r3(s.hipsPos) : r3(clampLoose(ch as JointName, s.pose[ch as JointName])),
       easing: 'linear',
+      ...(o.run ? { run: o.run } : {}),
     }));
     return { type: 'track_restore', object: obj.id, channel: ch, keys: [...old, ...mine].sort((a, b) => a.t - b.t) } as Command;
   });

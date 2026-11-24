@@ -44,7 +44,7 @@ image_add {path|imageId, mode: background|plane|camera, name?, opacity?, inRende
 image_set {object|background, opacity?, visible?, locked?, inRender?, fit?, billboard?, doubleSided?, name?}   image_remove {object|background}
 scene_preset                   (duo / trio / group5 / keluarga formations, mixed gender)
 undo {steps?}   redo {steps?}
-anim_list {query?}   anim_apply {clip, objects?, start?, speed?, loops?, keyEvery?, mirror?, inPlace?, extend?}
+anim_list {query?}   anim_apply {clip, objects?, start?, speed?, loops?, keyEvery?, mirror?, inPlace?, extend?, duration?}
 mocap_from_video {path, maxPeople?, assign?, fps?, smoothing?, footLock?, inPlace?, mirror?, keyEvery?, start?}
 viewport_snapshot {width?, height?}   -> PNG image (default 960x540)
 render_export {format: png|png_seq|webm|mp4|glb|bvh|project, width?, height?, fps?, transparent?, objects?, outDir?, filename?}  -> {path, ...}
@@ -113,10 +113,10 @@ Every mannequin has an optional `body: { preset, heightScale?, gender? }` (scene
 `anim_list {query?}` lists 86 CC0 clips (ids like `ual1/Dance_Loop`, `ual2/Sword_Regular_A`): idles, walks, runs, sitting, sword, pistol, jumps, dance... `anim_apply` bakes a clip as keys on mannequins as ONE undo step, for any character:
 
 ```
-anim_apply { clip, objects?: [id|name], start?, speed?, loops?, keyEvery?, mirror?, inPlace?, extend? }
+anim_apply { clip, objects?: [id|name], start?, speed?, loops?, keyEvery?, mirror?, inPlace?, extend?, duration? }
 ```
 
-Defaults: the selected mannequin (else every mannequin), start at the playhead, speed 1, 1 loop, a key every frame, timeline extended when the clip is longer, original hips travel kept (`inPlace: true` drops horizontal travel, keeps height). `keyEvery` 2, 3 or 5 gives lighter tracks that are easier to edit. Existing keys inside the baked time range are replaced, keys outside are kept. Values are clamped loosely, not to the strict human joint limits. Workflow: `anim_list {query:"walk"}`, `anim_apply {clip:"ual1/Walk_Loop", loops:3, inPlace:true}`, `viewport_snapshot` after `playhead_seek`, then maybe `object_transform` + `key_add` on `position` to move the object across the scene.
+Defaults: the selected mannequin (else every mannequin), start at the playhead, speed 1, 1 loop, a key every frame, timeline extended when the clip is longer, original hips travel kept (`inPlace: true` drops horizontal travel, keeps height). `keyEvery` 2, 3 or 5 gives lighter tracks that are easier to edit. Existing keys inside the baked time range are replaced, hand-made keys outside are kept. `duration` (seconds, from `start`) trims the run: a 10-loop idle with `duration: 2.5` writes only 2.5 s of keys. A later `anim_apply` that overlaps an earlier `anim_apply` run replaces it on every joint: keys inside the new range are replaced and the rest of the earlier run after the new range is dropped, so a looped idle does not keep playing behind a `Death01` clip (the character holds the last pose of the new clip). Keys you made by hand are never removed this way. One undo step restores everything. Values are clamped loosely, not to the strict human joint limits. Workflow: `anim_list {query:"walk"}`, `anim_apply {clip:"ual1/Walk_Loop", loops:3, inPlace:true}`, `viewport_snapshot` after `playhead_seek`, then maybe `object_transform` + `key_add` on `position` to move the object across the scene.
 
 ## Copy Dance (motion capture from video)
 
@@ -245,7 +245,7 @@ As MCP tools `image_add` takes `path` (an absolute path on the machine running t
 
 ## Important semantics
 
-- `key_add` records the object's current base values (what you set with `joint_set` etc). `playhead_seek` and playback overwrite every keyed channel with its sampled value. So the pattern is always: **seek, set values, key_add**.
+- `key_add` records the object's current base values (what you set with `joint_set` etc). `playhead_seek` and playback overwrite every keyed channel with its sampled value. So the pattern is always: **seek, set values, key_add**. Agent edits stop playback, and commands that touch one object (`key_move`, `track_restore`, `timeline_set`, ...) only re-sample that object, so `pose_apply` then `key_add {target:"all"}` keys exactly the pose you applied.
 - Easing on a key applies to the segment that starts at that key.
 - `pose_apply` with a preset name resets every joint first. Use `partial: true` with a pose object to change only the listed joints.
 

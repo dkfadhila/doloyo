@@ -17,6 +17,8 @@ export interface ApplyRequest {
   keyEvery?: number;
   mirror?: boolean;
   inPlace?: boolean;
+  /** Trim the run to this many seconds from `start` (loops and clip keys past it are dropped). Default: the full run. */
+  duration?: number;
   /** Grow the timeline if the clip is longer than the project. Default true. */
   extend?: boolean;
 }
@@ -31,6 +33,8 @@ export interface ApplyResult {
   extended: boolean;
   duration: number;
 }
+
+let runCounter = 0;
 
 export function resolveTargets(objects: ApplyRequest['objects']): SceneObject[] {
   const s = useStore.getState();
@@ -57,7 +61,8 @@ function options(req: ApplyRequest, fps: number, playhead: number): ApplyOptions
   if (!Number.isInteger(loops) || loops < 1 || loops > 50) throw new Error('loops must be an integer 1..50');
   const start = req.start ?? playhead;
   if (!(start >= 0)) throw new Error('start must be >= 0');
-  return { fps, start, speed, loops, every, mirror: !!req.mirror, inPlace: !!req.inPlace };
+  if (req.duration !== undefined && !(typeof req.duration === 'number' && req.duration > 0 && req.duration <= 3600)) throw new Error('duration must be a number of seconds > 0 (max 3600)');
+  return { fps, start, speed, loops, every, mirror: !!req.mirror, inPlace: !!req.inPlace, ...(req.duration !== undefined ? { duration: req.duration } : {}) };
 }
 
 /** Bake a library clip onto mannequins as keys: ONE batch command, so one undo step. */
@@ -77,10 +82,11 @@ export async function applyClip(req: ApplyRequest, source: 'ui' | 'agent' = 'ui'
     sampler.dispose();
   }
   stopPreview();
+  const run = `r${++runCounter}${Date.now().toString(36)}`;
   const project = useStore.getState().project;
   const commands: Command[] = targets.map((t) => {
     const cur = useStore.getState().project.objects.find((x) => x.id === t.id) ?? t;
-    return bakeCommand(project, cur, samples);
+    return bakeCommand(project, cur, samples, { run });
   });
   const end = samples[samples.length - 1].t;
   const extend = req.extend !== false && end > project.duration + 1e-3;

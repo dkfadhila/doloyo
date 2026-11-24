@@ -1,7 +1,6 @@
 import { bodyHeight, genderOf } from '../core/body';
 import { applyClip } from '../anim/apply';
 import { isLoop, listClips, searchClips } from '../anim/library';
-import { charactersReady } from '../characters/loader';
 import { resolveImageCommands } from '../images/commands';
 import { addImageBlob, loadProjectImages } from '../images/store';
 import { runMocapFromBlob } from '../mocap/job';
@@ -12,6 +11,7 @@ import type { SceneObject } from '../core/types';
 import { runExport } from '../render/run';
 import { EXPORT_FORMATS, type ExportFormat } from '../render/plan';
 import { useStore } from '../store';
+import { sceneReady } from '../three/ready';
 import { takeSnapshot } from '../three/shared';
 import { AUTO_KEY, CODE_KEY, loadCode, readSession, removeSession, useAgent, type LogEntry } from './agentStore';
 import { checkPermission, findInternalCommand } from './permissions';
@@ -119,7 +119,7 @@ function num(v: unknown, def: number, name: string, min = 16, max = 7680): numbe
 }
 
 async function snapshot(params: Record<string, unknown> | undefined) {
-  await charactersReady(); // skinned characters load asynchronously
+  await sceneReady(); // skinned characters load asynchronously (and their views mount after the command)
   await loadProjectImages(useStore.getState().project);
   const width = num(params?.width, 960, 'width');
   const height = num(params?.height, 540, 'height');
@@ -187,6 +187,7 @@ async function animApply(params: Record<string, unknown> | undefined) {
       mirror: opt<boolean>(p.mirror, 'boolean', 'mirror'),
       inPlace: opt<boolean>(p.inPlace, 'boolean', 'inPlace'),
       extend: opt<boolean>(p.extend, 'boolean', 'extend'),
+      duration: opt<number>(p.duration, 'number', 'duration'),
     },
     'agent',
   );

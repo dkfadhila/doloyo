@@ -92,13 +92,16 @@ export interface ApplyOptions {
   /** Drop horizontal hips travel (keep height). */
   inPlace: boolean;
   fps: number;
+  /** Trim the run to this many project seconds from `start` (cuts loops and the clip short). Default: the whole run. */
+  duration?: number;
 }
 
 export const DEFAULT_APPLY: Omit<ApplyOptions, 'start' | 'fps'> = { speed: 1, loops: 1, every: 1, mirror: false, inPlace: false };
 
 /** Project-time length of a clip run with these options. */
-export function runLength(info: ClipInfo, o: Pick<ApplyOptions, 'speed' | 'loops'>): number {
-  return (info.duration * Math.max(1, o.loops)) / Math.max(0.05, o.speed);
+export function runLength(info: ClipInfo, o: Pick<ApplyOptions, 'speed' | 'loops'> & { duration?: number }): number {
+  const full = (info.duration * Math.max(1, o.loops)) / Math.max(0.05, o.speed);
+  return o.duration === undefined ? full : Math.min(full, o.duration);
 }
 
 /** Sample a clip into bake samples on the project frame grid. */
@@ -107,7 +110,9 @@ export function sampleClip(sampler: ClipSampler, info: ClipInfo, o: ApplyOptions
   const loops = Math.max(1, Math.round(o.loops));
   const total = info.duration * loops; // clip seconds
   const stepFrames = Math.max(1, Math.round(o.every));
-  const frames = Math.max(1, Math.round((total / speed) * o.fps));
+  const fullFrames = Math.max(1, Math.round((total / speed) * o.fps));
+  const frames = o.duration === undefined ? fullFrames : Math.min(fullFrames, Math.max(1, Math.round(o.duration * o.fps)));
+  const trimmed = frames < fullFrames;
   const startFrame = Math.round(o.start * o.fps);
   const out: BakeSample[] = [];
   const loop = isLoop(info) || loops > 1;
@@ -116,7 +121,7 @@ export function sampleClip(sampler: ClipSampler, info: ClipInfo, o: ApplyOptions
     const fr = last ? frames : f;
     const clipT = Math.min(total, (fr / o.fps) * speed);
     const local = loop && clipT < total ? clipT % info.duration : Math.min(clipT, info.duration);
-    let s = sampler.sample(clipT >= total ? info.duration : local);
+    let s = sampler.sample(clipT >= total && !trimmed ? info.duration : local);
     if (o.mirror) s = mirrorSample(s);
     const hips: Vec3 = o.inPlace ? [0, s.hipsPos[1], 0] : s.hipsPos;
     out.push({ t: (startFrame + fr) / o.fps, pose: s.pose, hipsPos: hips });

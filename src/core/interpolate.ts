@@ -191,9 +191,11 @@ export function evaluateObject(obj: SceneObject, t: number): SceneObject {
   return hasPins(out) ? applyPins(out) : out;
 }
 
-export function evaluateProject(p: Project, t: number = p.time): Project {
+/** Evaluate every object at t, or only the ones in `only` (ids or names) and leave the rest as they are. */
+export function evaluateProject(p: Project, t: number = p.time, only?: ReadonlySet<string>): Project {
   let changed = false;
   const objects = p.objects.map((o) => {
+    if (only && !only.has(o.id) && !only.has(o.name)) return o;
     if (Object.keys(o.tracks).length === 0 && !hasPins(o)) return o;
     changed = true;
     return evaluateObject(o, t);

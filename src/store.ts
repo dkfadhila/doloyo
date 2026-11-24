@@ -188,7 +188,10 @@ export const useStore = create<State>((set, get) => ({
       }
       let selection = fixSelection(s.selection, r.project);
       if (r.applied.type === 'object_add') selection = { object: r.applied.id ?? null, joint: null, key: null };
-      set({ project: r.project, undoStack, redoStack, selection, keySet: pruneKeys(s.keySet, r.project) });
+      // Playback re-samples every keyed channel each frame, which would replace a pose the agent just applied before
+      // it can be keyed. An agent edit therefore stops playback (the playhead stays where it is).
+      const playing = s.playing && !(r.inverse && opts?.source === 'agent');
+      set({ project: r.project, undoStack, redoStack, selection, keySet: pruneKeys(s.keySet, r.project), playing });
       return { ok: true };
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);

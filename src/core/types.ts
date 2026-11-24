@@ -86,6 +86,8 @@ export interface Keyframe {
   t: number;
   value: Vec3;
   easing: Easing;
+  /** Id of the clip run (anim_apply) that baked this key; lets a later clip supersede the tail of an earlier one. */
+  run?: string;
 }
 
 /**

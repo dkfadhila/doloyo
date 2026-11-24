@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { charactersReady } from '../characters/loader';
+import { sceneReady } from '../three/ready';
 import { exportRender, ExportCancelled, type ExportOptions, type ExportResult } from './renderer';
 
 interface RenderStatus {
@@ -28,7 +28,7 @@ export async function runExport(opts: Omit<ExportOptions, 'signal' | 'onProgress
   const abort = new AbortController();
   useRender.setState({ busy: true, label, done: 0, total: 0, error: null, abort });
   try {
-    await charactersReady(); // skinned characters load asynchronously; never export a half-loaded scene
+    await sceneReady(); // characters loaded, retargeted, posed and one frame drawn; never export a half-loaded scene
     return await exportRender({
       ...opts,
       signal: abort.signal,

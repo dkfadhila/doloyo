@@ -399,11 +399,25 @@ function resolveBody(character: string, cur: BodySpec | undefined, ch: { preset?
 
 // ---------- main ----------
 
+/**
+ * Objects whose keyed channels are re-sampled after a command. Only the touched objects: sampling the whole
+ * project would overwrite the manually applied (not yet keyed) pose of every OTHER animated object, e.g. a
+ * pose_apply on A followed by a timeline_set / track_restore / key_move on B must not reset A to its animation.
+ * The playhead moving (playhead_seek, or a timeline change that clamps it) samples everything.
+ */
+function evalScope(before: Project, after: Project, c: Command): ReadonlySet<string> | undefined {
+  if (c.type === 'playhead_seek') return undefined;
+  if (c.type === 'timeline_set') return after.time !== before.time ? undefined : new Set();
+  if (c.type === 'keys_edit') return new Set(c.edits.map((e) => e.object));
+  if (c.type === 'keys_remove') return new Set(c.keys.map((k) => k.object));
+  return new Set([(c as { object: string }).object]);
+}
+
 export function applyCommand(project: Project, cmd: Command): CommandResult {
   const c = normalize(project, cmd);
   const r = exec(project, c);
   if (REPIN.has(c.type)) r.project = repin(project, r.project);
-  if (EVAL_AFTER.has(c.type)) r.project = evaluateProject(r.project);
+  if (EVAL_AFTER.has(c.type)) r.project = evaluateProject(r.project, r.project.time, evalScope(project, r.project, c));
   return r;
 }
 

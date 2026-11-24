@@ -91,6 +91,17 @@ The semantics of every command are in [../docs/AGENT.md](../docs/AGENT.md) (also
 
 - "Port 7777 is already in use": another instance is running. Stop it or set `DOLOYO_PORT` (the app currently connects to 7777 only).
 - Connection never goes green: open the browser console; check the origin is exactly `http://localhost:5173` (or add yours with `--origin <url>` or `DOLOYO_ORIGINS`).
+- **MCP client request timeout (60 s default).** The MCP SDK clients (TypeScript and Python) give up on a request after 60 seconds, even though the server and the tab keep rendering. Long `render_export` calls (and `anim_apply`, `mocap_from_video`) then fail on the client with `MCP error -32001: Request timed out`. Raise the per-call timeout. TypeScript SDK:
+
+  ```ts
+  const res = await client.callTool(
+    { name: 'render_export', arguments: { format: 'mp4', width: 1920, height: 1080 } },
+    undefined, // result schema (default)
+    { timeout: 10 * 60 * 1000 }, // ms; the server itself waits up to 10 minutes
+  );
+  ```
+
+  Claude Code and Claude Desktop have their own tool timeout setting (for Claude Code, the `MCP_TOOL_TIMEOUT` environment variable, in ms).
 - Some agent clients hide stderr; read the code from the temp file or via `bridge_status`.
 
 ## Test

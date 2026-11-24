@@ -15,6 +15,8 @@ export class SkinnedInstance {
   private originals = new Map<Mesh, Material | Material[]>();
   private clones = new Map<Mesh, Material | Material[]>();
   private doll = new MeshStandardMaterial({ color: BODY, roughness: 0.85, metalness: 0 });
+  /** Character file this instance was built from (views compare it with the object's current character). */
+  characterId = '';
   private look = '';
   private ghostMat: MeshBasicMaterial | null = null;
 
@@ -102,5 +104,7 @@ export async function createSkinned(characterId: string): Promise<SkinnedInstanc
   const scene: Object3D = loaded.scene;
   const rt = new Retargeter(scene, def.bones, def.calibration);
   if (!rt.info.mapped.includes('hips')) throw new Error(`Character "${def.label}" has no hips bone mapped`);
-  return new SkinnedInstance(rt);
+  const inst = new SkinnedInstance(rt);
+  inst.characterId = characterId;
+  return inst;
 }

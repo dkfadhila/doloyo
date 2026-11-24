@@ -315,6 +315,14 @@ try {
   assert.equal(apBad.isError, true);
   ok('anim_apply validates loops');
 
+  json(await client.callTool({ name: 'anim_apply', arguments: { clip: 'Idle_Loop', loops: 10, duration: 2.5 } }));
+  assert.equal(calls.at(-1).method, 'anim_apply');
+  assert.deepEqual(calls.at(-1).params, { clip: 'Idle_Loop', loops: 10, duration: 2.5 });
+  ok('anim_apply forwards duration');
+  const apDur = await client.callTool({ name: 'anim_apply', arguments: { clip: 'x', duration: 0 } }).catch((e) => ({ isError: true, content: [{ type: 'text', text: String(e.message) }] }));
+  assert.equal(apDur.isError, true);
+  ok('anim_apply validates duration');
+
   // mocap: the server reads the file and streams it in chunks; the fake browser reassembles it
   const video = Buffer.alloc(7_000_000, 7);
   video.write('ftypmp42', 4);

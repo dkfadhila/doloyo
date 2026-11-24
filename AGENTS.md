@@ -318,6 +318,17 @@ Pin the feet where they stand, lower the hips (the legs bend instead of the feet
 - **Safari.** Safari blocks a secure page from talking to `ws://127.0.0.1`. Use Chrome or Edge for the hosted app, or the local app (`npm start`) in Safari. Chrome and Edge may show a Private Network Access prompt for the hosted app: allow it.
 - **Port 7777 in use.** Another server is running (the tool error says so). Stop it. `DOLOYO_PORT` changes the server port, but the app connects to 7777 only.
 - **Timeouts on long renders.** Renders and video analysis run in the tab (limits: 10 minutes for a render, 30 for Copy Dance). Keep the tab in the foreground, use a smaller size or fps, or export `png_seq`. A call that fails with "Timed out waiting for the browser" usually means the tab is in the background or busy.
+- **MCP client request timeout (60 s default).** The MCP SDK clients (TypeScript and Python) give up on a request after 60 seconds, even though the server and the tab keep rendering. Long `render_export` calls (and `anim_apply`, `mocap_from_video`) then fail on the client with `MCP error -32001: Request timed out`. Raise the per-call timeout. TypeScript SDK:
+
+  ```ts
+  const res = await client.callTool(
+    { name: 'render_export', arguments: { format: 'mp4', width: 1920, height: 1080 } },
+    undefined, // result schema (default)
+    { timeout: 10 * 60 * 1000 }, // ms; the server itself waits up to 10 minutes
+  );
+  ```
+
+  Claude Code and Claude Desktop have their own tool timeout setting (for Claude Code, the `MCP_TOOL_TIMEOUT` environment variable, in ms).
 - **"Permission denied".** The user's permission mode is too low; ask them to raise it in the Agent panel.
 - **An edit seems to vanish.** The object has keys and the playhead moved. Seek, set, then `key_add`.
 - **A picture does not show.** Reference images are stored in the browser that received them; after clearing site data or opening the project elsewhere they are gone (the app warns). Add them again with `image_add`.

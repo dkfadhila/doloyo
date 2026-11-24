@@ -1,5 +1,5 @@
-// Bundle a copy of docs/AGENT.md so guide_read still works when the package is used outside the repo.
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+// Bundle a copy of docs/AGENT.md and the skills/ folder so guide_read still works when the package is used outside the repo.
+import { copyFileSync, cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,4 +11,13 @@ if (existsSync(src)) {
   console.error('[copy-guide] bundled docs/AGENT.md');
 } else {
   console.error('[copy-guide] ../docs/AGENT.md not found, keeping existing guide/AGENT.md');
+}
+
+const skills = resolve(root, '..', 'skills');
+if (existsSync(resolve(skills, 'README.md'))) {
+  rmSync(resolve(root, 'guide', 'skills'), { recursive: true, force: true });
+  cpSync(skills, resolve(root, 'guide', 'skills'), { recursive: true });
+  console.error('[copy-guide] bundled skills/');
+} else {
+  console.error('[copy-guide] ../skills not found, keeping existing guide/skills');
 }

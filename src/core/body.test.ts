@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ADULT, bodyProfile, characterForBody, cleanBody, genderOf, profileOf } from './body';
 import { applyCommand, FAMILY, newProject, normalizeProject, type Command } from './commands';
 import { contactHeights, endWorld, fk, groundHipsPos, jointWorld, reachWorld } from './ik';
@@ -191,7 +191,7 @@ describe('object_set_body', () => {
     expect(characterForBody('mannequin-m', 'dewasa', 'f')).toBe('mannequin-f');
     expect(characterForBody('mannequin-f', 'remaja', 'f')).toBe('mannequin-m');
     expect(characterForBody('mannequin-f', 'kecil', 'f')).toBe('mannequin-m');
-    expect(characterForBody('superhero-m', 'dewasa', 'f')).toBe('superhero-f');
+    expect(characterForBody('doll-procedural', 'kecil', 'f')).toBe('doll-procedural');
     expect(characterForBody('custom:abc', 'kecil', 'f')).toBe('custom:abc');
     let p = start();
     p = run(p, { type: 'object_set_body', object: id(p), preset: 'dewasa', gender: 'm' }).project;
@@ -206,14 +206,13 @@ describe('object_set_body', () => {
     expect(only(p).character).toBe('mannequin-f'); // the girl grows up onto the adult female mesh
   });
 
-  it('the adult female mesh and superheroes cannot be put on a child body by hand', () => {
+  it('the adult female mesh cannot be put on a child or teen body by hand', () => {
     const base = start();
     const kid = run(base, { type: 'object_set_body', object: id(base), preset: 'pendek' }).project;
     expect(() => run(kid, { type: 'object_set_character', object: id(kid), character: 'mannequin-f' })).toThrow(/dewasa/);
-    expect(() => run(kid, { type: 'object_set_character', object: id(kid), character: 'superhero-m' })).toThrow(/remaja and dewasa/);
     const teen = run(kid, { type: 'object_set_body', object: id(kid), preset: 'remaja' }).project;
     expect(() => run(teen, { type: 'object_set_character', object: id(teen), character: 'mannequin-f' })).toThrow(/dewasa/);
-    expect(only(run(teen, { type: 'object_set_character', object: id(teen), character: 'superhero-f' }).project).character).toBe('superhero-f');
+    expect(only(run(teen, { type: 'object_set_character', object: id(teen), character: 'mannequin-m' }).project).character).toBe('mannequin-m');
     expect(only(run(kid, { type: 'object_set_character', object: id(kid), character: 'doll-procedural' }).project).character).toBe('doll-procedural');
   });
 
@@ -231,14 +230,16 @@ describe('object_set_body', () => {
     expect(run(r.project, r.inverse!).project).toEqual(p0);
   });
 
-  it('superheroes only allow remaja and dewasa, with a clear error', () => {
+  it('a retired superhero id becomes the matching mannequin, so every body size works', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const p = run(newProject(), { type: 'object_add', kind: 'mannequin', name: 'Hero', character: 'superhero-m' }).project;
-    expect(() => run(p, { type: 'object_set_body', object: 'Hero', preset: 'kecil' })).toThrow(/only support the presets remaja and dewasa/);
-    expect(() => run(p, { type: 'object_set_body', object: 'Hero', preset: 'pendek' })).toThrow(/superhero/i);
-    const t = run(p, { type: 'object_set_body', object: 'Hero', preset: 'remaja' }).project;
-    expect(t.objects.find((x) => x.name === 'Hero')!.character).toBe('superhero-m');
-    expect(t.objects.find((x) => x.name === 'Hero')!.body?.preset).toBe('remaja');
-    expect(() => run(newProject(), { type: 'object_add', kind: 'mannequin', character: 'superhero-f', body: { preset: 'kecil' } })).toThrow(/superhero/i);
+    expect(p.objects.find((x) => x.name === 'Hero')!.character).toBe('mannequin-m');
+    const k = run(p, { type: 'object_set_body', object: 'Hero', preset: 'kecil' }).project;
+    expect(k.objects.find((x) => x.name === 'Hero')!.body?.preset).toBe('kecil');
+    const baby = run(newProject(), { type: 'object_add', kind: 'mannequin', character: 'superhero-f', body: { preset: 'kecil' } }).project;
+    expect(baby.objects[1].character).toBe('mannequin-m'); // small bodies use the neutral mesh
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it('rejects non-mannequins; changing the body unpins the feet and undo brings them back', () => {
@@ -294,8 +295,8 @@ describe('scene_preset: mixed gender and keluarga', () => {
       expect(chars(p)).toEqual(Array.from({ length: n }, (_, i) => (i % 2 === 0 ? 'mannequin-f' : 'mannequin-m')));
       expect(p.objects.every((o) => !o.body)).toBe(true);
     }
-    const hero = run(newProject(), { type: 'scene_preset', preset: 'trio', character: 'superhero-m', clear: true }).project;
-    expect(new Set(chars(hero))).toEqual(new Set(['superhero-m']));
+    const one = run(newProject(), { type: 'scene_preset', preset: 'trio', character: 'mannequin-m', clear: true }).project;
+    expect(new Set(chars(one))).toEqual(new Set(['mannequin-m']));
   });
 
   it('scene_preset accepts a body for every doll (kids on the neutral mesh, gender kept)', () => {
@@ -303,7 +304,7 @@ describe('scene_preset: mixed gender and keluarga', () => {
     expect(p.objects.map((o) => o.body?.preset)).toEqual(['kecil', 'kecil']);
     expect(chars(p)).toEqual(['mannequin-m', 'mannequin-m']);
     expect(p.objects.map((o) => genderOf(o))).toEqual(['f', 'm']);
-    expect(() => run(newProject(), { type: 'scene_preset', preset: 'duo', character: 'superhero-f', body: { preset: 'pendek' } })).toThrow(/superhero/i);
+    expect(chars(run(newProject(), { type: 'scene_preset', preset: 'duo', clear: true, character: 'doll-procedural', body: { preset: 'pendek' } }).project)).toEqual(['doll-procedural', 'doll-procedural']);
     expect(() => run(newProject(), { type: 'scene_preset', preset: 'keluarga', body: { preset: 'remaja' } })).toThrow(/fixed body sizes/);
   });
 
@@ -328,8 +329,8 @@ describe('scene_preset: mixed gender and keluarga', () => {
     expect(p.objects.filter((o) => o !== baby).every((o) => o.hipsPos[1] === 0)).toBe(true);
     expect(applyCommand(p, r.inverse as Command).project).toEqual(p0);
     expect(applyCommand(p0, r.applied).project).toEqual(p);
-    const withHero = run(newProject(), { type: 'scene_preset', preset: 'keluarga', character: 'superhero-f', clear: true }).project;
-    expect(withHero.objects.map((o) => o.character)).toEqual(['superhero-m', 'mannequin-m', 'mannequin-m', 'superhero-f']); // adults follow the family gender, kids stay on the neutral mannequin
+    const doll = run(newProject(), { type: 'scene_preset', preset: 'keluarga', character: 'doll-procedural', clear: true }).project;
+    expect(doll.objects.map((o) => o.character)).toEqual(['doll-procedural', 'mannequin-m', 'mannequin-m', 'doll-procedural']); // adults take the character, kids stay on the neutral mannequin
   });
 });
 

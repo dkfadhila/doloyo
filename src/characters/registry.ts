@@ -54,7 +54,7 @@ export interface CharacterDef {
   custom?: boolean;
 }
 
-/** Unreal-style skeleton shared by every Quaternius asset (mannequins, superheroes, animation libraries). */
+/** Unreal-style skeleton shared by every Quaternius asset (mannequins, animation libraries). */
 export const QUATERNIUS_BONES: BoneMap = {
   hips: 'pelvis',
   spine: 'spine_01',
@@ -94,8 +94,6 @@ export const BUILTIN_CHARACTERS: CharacterDef[] = [
   { id: 'doll-procedural', label: 'Art doll (procedural)', kind: 'procedural', url: '', bones: {}, defaultMaterial: 'doll', calibration: {} },
   quat('mannequin-f', 'Mannequin F', 'mannequin_f.glb', 'doll'),
   quat('mannequin-m', 'Mannequin M', 'mannequin_m.glb', 'doll'),
-  quat('superhero-m', 'Superhero M', 'superhero_m.glb', 'original'),
-  quat('superhero-f', 'Superhero F', 'superhero_f.glb', 'original'),
 ];
 
 if (BUILTIN_CHARACTERS.some((c, i) => c.id !== BUILTIN_CHARACTER_IDS[i])) throw new Error('registry and BUILTIN_CHARACTER_IDS out of sync');

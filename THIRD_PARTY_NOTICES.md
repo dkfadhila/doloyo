@@ -6,7 +6,7 @@ Doloyo itself is MIT licensed (see LICENSE). It bundles or uses the following. L
 
 | Component | License | Notes |
 | --- | --- | --- |
-| Quaternius characters (Mannequin F/M, Superhero M/F, hairstyles) and the Universal Animation Library 1 and 2 clips | CC0 1.0 Universal | https://quaternius.com. Converted and resampled with glTF-Transform. Details in `public/assets/CREDITS.md`. |
+| Quaternius characters (Mannequin F/M) and the Universal Animation Library 1 and 2 clips | CC0 1.0 Universal | https://quaternius.com. Converted and resampled with glTF-Transform. Details in `public/assets/CREDITS.md`. |
 | MediaPipe Pose Landmarker models (`pose_landmarker_full.task`, optionally heavy) | Apache-2.0 | Google. Downloaded by `npm run fetch-models` (not committed) or loaded from Google storage when missing. |
 | Inter and JetBrains Mono fonts | SIL Open Font License 1.1 | Loaded from Google Fonts at runtime; not redistributed in this repository. |
 

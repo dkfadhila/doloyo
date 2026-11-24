@@ -1,10 +1,10 @@
-import { bodyCharacterError, characterForBody, cleanBody, clampHeightScale, genderOf, HEIGHT_SCALE_MAX, HEIGHT_SCALE_MIN, isBodyPreset, profileOf } from './body';
+import { characterForBody, cleanBody, clampHeightScale, genderOf, HEIGHT_SCALE_MAX, HEIGHT_SCALE_MIN, isBodyPreset, profileOf } from './body';
 import { applyPins, endWorld, FOOT_LIMB, groundHipsPos, hasPins, LEG_FOOT, LIMB_JOINTS, parseLimb, reachWorld } from './ik';
 import { channelsFor, evaluateObject, evaluateProject, getChannel, isChannel, parseEasing, setChannel } from './interpolate';
 import { POSES, resolvePose } from './poses';
 import { clampRotation, emptyPose, isJoint, JOINTS, mirrorJointName, mirrorRotation } from './rig';
 import type { BackdropSlot, BodySpec, Easing, Gender, ImageBackdrop, ImageFit, ImageMode, ImagePlane, JointName, Keyframe, Limb, ObjectKind, Pins, Pose, PoseData, Project, SceneObject, Vec3 } from './types';
-import { BODY_PRESETS, BUILTIN_CHARACTER_IDS, DEFAULT_CHARACTER, IMAGE_FITS, IMAGE_MODES, isCharacterId, MATERIAL_MODES, OBJECT_KINDS, PROCEDURAL_CHARACTER, type MaterialMode } from './types';
+import { BODY_PRESETS, BUILTIN_CHARACTER_IDS, DEFAULT_CHARACTER, IMAGE_FITS, IMAGE_MODES, isCharacterId, MATERIAL_MODES, migrateCharacterId, OBJECT_KINDS, PROCEDURAL_CHARACTER, type MaterialMode } from './types';
 
 export type Target = string | string[];
 
@@ -253,7 +253,7 @@ export function normalizeProject(raw: unknown): Project {
     objects: p.objects.filter((o) => o.kind !== 'image' || cleanImagePlane(o.image)).map((o) => normalizeImage(normalizeBody({
       ...createObject(o.kind, o.name ?? 'Object', o.id ?? uid(), o.position ?? [0, 0, 0], PROCEDURAL_CHARACTER),
       ...o,
-      character: typeof o.character === 'string' && o.character ? o.character : PROCEDURAL_CHARACTER,
+      character: typeof o.character === 'string' && o.character ? String(migrateCharacterId(o.character)) : PROCEDURAL_CHARACTER,
       material: MATERIAL_MODES.includes(o.material) ? o.material : 'doll',
       pose: { ...emptyPose(), ...(o.pose ?? {}) },
       tracks: cleanTracks(o.tracks),
@@ -381,14 +381,12 @@ function checkBodyChange(c: BodyChange, what = 'body'): { preset?: BodySpec['pre
 
 /**
  * New body + character for a change. Built-in mannequins switch mesh with the body (kids and teens use the neutral
- * mannequin-m mesh, only the adult female uses mannequin-f); superheroes reject the small presets.
+ * mannequin-m mesh, only the adult female uses mannequin-f).
  */
 function resolveBody(character: string, cur: BodySpec | undefined, ch: { preset?: BodySpec['preset']; heightScale?: number; gender?: Gender }): { body: BodySpec | undefined; character: string } {
   const preset = ch.preset ?? cur?.preset ?? 'dewasa';
   const gender = ch.gender ?? genderOf({ character, body: cur });
   const hs = ch.heightScale ?? cur?.heightScale ?? 1;
-  const err = bodyCharacterError(character, preset);
-  if (err) fail(err);
   const nextChar = characterForBody(character, preset, gender);
   let body: BodySpec | undefined = { preset };
   if (Math.abs(hs - 1) > 1e-6) body.heightScale = hs;
@@ -549,8 +547,9 @@ function exec(p: Project, c: Command): CommandResult {
         : c.kind === 'camera'
           ? ([...CAMERA_DEFAULT.position] as Vec3)
           : ([slot, c.kind === 'mannequin' ? 0 : 0.25, 0] as Vec3);
-      if (c.character !== undefined && !isCharacterId(c.character)) fail(`Unknown character: ${c.character} (built-in: ${BUILTIN_CHARACTER_IDS.join(', ')}; imported: custom:<id>)`);
-      let character = c.kind === 'mannequin' ? c.character : undefined;
+      const addChar = c.character === undefined ? undefined : migrateCharacterId(c.character);
+      if (addChar !== undefined && !isCharacterId(addChar)) fail(`Unknown character: ${addChar} (built-in: ${BUILTIN_CHARACTER_IDS.join(', ')}; imported: custom:<id>)`);
+      let character = c.kind === 'mannequin' ? (addChar as string | undefined) : undefined;
       let body: BodySpec | undefined;
       if (c.body !== undefined) {
         if (c.kind !== 'mannequin') fail('body only applies to mannequins');
@@ -564,20 +563,19 @@ function exec(p: Project, c: Command): CommandResult {
       return {
         project: { ...p, objects: [...p.objects, obj] },
         inverse: { type: 'object_remove', object: id },
-        applied: { ...c, id, name, position },
+        applied: { ...c, id, name, position, ...(addChar !== undefined ? { character: addChar as string } : {}) },
       };
     }
 
     case 'object_set_character': {
       const o = mannequin(p, c.object);
-      if (!isCharacterId(c.character)) fail(`Unknown character: ${String(c.character)} (built-in: ${BUILTIN_CHARACTER_IDS.join(', ')}; imported: custom:<id>)`);
+      const character = migrateCharacterId(c.character);
+      if (!isCharacterId(character)) fail(`Unknown character: ${String(c.character)} (built-in: ${BUILTIN_CHARACTER_IDS.join(', ')}; imported: custom:<id>)`);
       if (c.material !== undefined && !MATERIAL_MODES.includes(c.material)) fail(`material must be one of ${MATERIAL_MODES.join(', ')}`);
       const preset = o.body?.preset ?? 'dewasa';
-      const bodyErr = bodyCharacterError(c.character, preset);
-      if (bodyErr) fail(bodyErr);
-      if (c.character === 'mannequin-f' && preset !== 'dewasa') fail(`Mannequin F is the adult female mesh and is only used with the dewasa body (this one is "${preset}"). Use mannequin-m (neutral) or set the body to dewasa first.`);
+      if (character === 'mannequin-f' && preset !== 'dewasa') fail(`Mannequin F is the adult female mesh and is only used with the dewasa body (this one is "${preset}"). Use mannequin-m (neutral) or set the body to dewasa first.`);
       const inv: Command = { type: 'object_set_character', object: o.id, character: o.character, material: o.material };
-      return { project: putObject(p, { ...o, character: c.character, material: c.material ?? o.material }), inverse: inv, applied: c };
+      return { project: putObject(p, { ...o, character, material: c.material ?? o.material }), inverse: inv, applied: { ...c, character } };
     }
 
     case 'object_set_body': {
@@ -950,14 +948,13 @@ function exec(p: Project, c: Command): CommandResult {
 
     case 'scene_preset': {
       const def = SCENE_PRESETS[c.preset] ?? fail('preset must be one of ' + Object.keys(SCENE_PRESETS).join(', '));
-      if (c.character !== undefined && !isCharacterId(c.character)) fail('Unknown character: ' + String(c.character));
+      const chr = c.character === undefined ? undefined : (migrateCharacterId(c.character) as string);
+      if (chr !== undefined && !isCharacterId(chr)) fail('Unknown character: ' + String(chr));
       let bodyIn: ReturnType<typeof checkBodyChange> | undefined;
       if (c.body !== undefined) {
         if (c.preset === 'keluarga') fail('The keluarga preset has fixed body sizes (2 adults, 1 anak, 1 bayi); body cannot be set');
         bodyIn = checkBodyChange(c.body as BodyChange);
-        const bp = bodyIn.preset ?? fail('body.preset is required');
-        const err = c.character ? bodyCharacterError(c.character, bp) : null;
-        if (err) fail(err);
+        if (!bodyIn.preset) fail('body.preset is required');
       }
       const subs: Command[] = [];
       if (c.clear) for (const o of p.objects) if (o.kind === 'mannequin') subs.push({ type: 'object_remove', object: o.id });
@@ -965,22 +962,22 @@ function exec(p: Project, c: Command): CommandResult {
         const id = uid();
         // mixed by default: alternate female / male mannequins (an explicit character applies to everyone)
         const gender: Gender = i % 2 === 0 ? 'f' : 'm';
-        let character: string | undefined = c.character;
+        let character: string | undefined = chr;
         let body: BodySpec | undefined;
         let pose: string | undefined;
         if (c.preset === 'keluarga') {
           const m = FAMILY[i];
           const small = m.preset === 'kecil' || m.preset === 'pendek';
-          const base = c.character && !small ? c.character : m.gender === 'f' ? 'mannequin-f' : 'mannequin-m';
+          const base = chr && !small ? chr : m.gender === 'f' ? 'mannequin-f' : 'mannequin-m';
           const r = resolveBody(base, undefined, { preset: m.preset, gender: m.gender });
           character = r.character;
           body = r.body;
           pose = m.pose;
         } else if (bodyIn) {
-          const r = resolveBody(c.character ?? (gender === 'f' ? 'mannequin-f' : 'mannequin-m'), undefined, bodyIn);
+          const r = resolveBody(chr ?? (gender === 'f' ? 'mannequin-f' : 'mannequin-m'), undefined, bodyIn);
           character = r.character;
           body = r.body;
-        } else if (!c.character) character = gender === 'f' ? 'mannequin-f' : 'mannequin-m';
+        } else if (!chr) character = gender === 'f' ? 'mannequin-f' : 'mannequin-m';
         subs.push({ type: 'object_add', kind: 'mannequin', id, position: f.position, ...(character ? { character } : {}), ...(body ? { body } : {}) });
         subs.push({ type: 'object_transform', object: id, rotation: [0, f.yaw, 0] });
         if (pose) subs.push({ type: 'pose_apply', object: id, pose });
@@ -1106,8 +1103,8 @@ function exec(p: Project, c: Command): CommandResult {
 
 export const COMMAND_HELP = `Doloyo command API. dispatch({type, ...args}). Objects are referenced by id or name. Rotations are Euler XYZ degrees. Times are seconds (or use frame).
 object_add {kind: mannequin|cube|sphere|cylinder|camera, name?, position?, character?, body?: {preset, heightScale?, gender?}}
-object_set_character {object, character: doll-procedural|mannequin-f|mannequin-m|superhero-m|superhero-f|custom:<id>, material?: doll|original}
-object_set_body {object, preset?: kecil|pendek|remaja|dewasa, heightScale?: 0.9..1.1, gender?: m|f}   (body size; kecil = baby 0.75 m, pendek = child 1.20 m, remaja = teen 1.62 m, dewasa = adult; superheroes: remaja/dewasa only)
+object_set_character {object, character: doll-procedural|mannequin-f|mannequin-m|custom:<id>, material?: doll|original}
+object_set_body {object, preset?: kecil|pendek|remaja|dewasa, heightScale?: 0.9..1.1, gender?: m|f}   (body size; kecil = baby 0.75 m, pendek = child 1.20 m, remaja = teen 1.62 m, dewasa = adult)
 object_remove {object}
 object_transform {object, name?, position?, rotation?, scale?}
 joint_set {object, joint, rotation?: [x,y,z], position?: [x,y,z] (hips only)}

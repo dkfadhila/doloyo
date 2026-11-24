@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { getCharacter, listCharacters, onRegistryChange, registryVersion } from '../characters/registry';
-import { BODY_HINT, BODY_SHORT, genderOf, HEIGHT_SCALE_MAX, HEIGHT_SCALE_MIN, isChildPreset, isSuperhero, profileOf } from '../core/body';
+import { BODY_HINT, BODY_SHORT, genderOf, HEIGHT_SCALE_MAX, HEIGHT_SCALE_MIN, profileOf } from '../core/body';
 import { endWorld, hasPins, poleAngleOf } from '../core/ik';
 import { POSE_NAMES } from '../core/poses';
 import { RIG_BY_NAME } from '../core/rig';
@@ -183,7 +183,6 @@ function BodySection({ obj }: { obj: SceneObject }) {
   const dispatch = useStore((s) => s.dispatch);
   const prof = profileOf(obj);
   const gender = genderOf(obj);
-  const hero = isSuperhero(obj.character);
   const group = useRef('');
   const [err, setErr] = useState<string | null>(null);
   const run = (c: { preset?: BodyPreset; heightScale?: number; gender?: 'm' | 'f' }, g?: string) => {
@@ -196,13 +195,11 @@ function BodySection({ obj }: { obj: SceneObject }) {
       <div className="row">
         <span className="seg body-seg">
           {BODY_PRESETS.map((p) => {
-            const blocked = hero && isChildPreset(p);
             return (
               <button
                 key={p}
                 className={'btn' + (prof.preset === p ? ' on' : '')}
-                disabled={blocked}
-                title={blocked ? 'Superhero characters only support Teen and Adult' : BODY_HINT[p]}
+                title={BODY_HINT[p]}
                 onClick={() => run({ preset: p })}
               >
                 {BODY_SHORT[p]}

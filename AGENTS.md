@@ -1,6 +1,6 @@
 # AGENTS.md - driving Doloyo from an AI agent
 
-This is a tutorial for AI agents (Claude Code, Claude Desktop, any MCP client) and for people setting one up. It is step by step: setup, pairing, rules, then five worked examples with exact tool calls. The full tool reference is [docs/AGENT.md](docs/AGENT.md) (the `guide_read` tool returns the same text).
+This is a tutorial for AI agents (Claude Code, Claude Desktop, any MCP client) and for people setting one up. It is step by step: setup, pairing, rules, then five worked examples with exact tool calls, and pointers to the built-in craft skills. The full tool reference is [docs/AGENT.md](docs/AGENT.md) (the `guide_read` tool returns the same text).
 
 ## 1. What Doloyo is
 
@@ -91,6 +91,7 @@ A denied call returns an error naming the required mode. Ask the user to change 
 8. **Mind the user's undo history.** Prefer a few batches over hundreds of single calls. If a step went wrong, `undo` it instead of piling fixes on top.
 9. **Children are neutral mannequins.** Body sizes `kecil` (baby), `pendek` (child), `remaja` (teen) and `dewasa` (adult) are about proportions only. Keep it that way.
 10. Long renders and videos can take minutes. Do one at a time and tell the user what you are waiting for.
+11. **Use the built-in skills for craft.** For anything beyond a quick pose (a short, a fight, camera work, polished keyframes) read the matching skill first: `guide_read` lists them, `guide_read {"skill": "doloyo-director"}` returns one. See section 11.
 
 ## 6. Tutorial A: wave hello (keyframes)
 
@@ -311,7 +312,29 @@ Pin the feet where they stand, lower the hips (the legs bend instead of the feet
 { "tool": "ik_bake", "arguments": { "object": "Mannequin 1", "start": 0, "end": 2 } }
 ```
 
-## 11. Troubleshooting
+## 11. Built-in skills
+
+The tutorials above show the tools. The skills in [skills/](skills/README.md) show how to make the result look good. Each is a `SKILL.md` with optional `references/` files; every tool call in them is checked by the same test as this file.
+
+| Skill | Read it when |
+| --- | --- |
+| `doloyo-director` | the user wants a complete short or video: beat sheet, blocking, camera pass, preview renders, a scored critique loop, final render (worked 30 s 9:16 fight example) |
+| `doloyo-fight-choreography` | fights and action: anticipation, strike, impact hold, reaction; combos; finisher; spacing; measured contact times of the built-in clips; hand-keyed kicks |
+| `doloyo-camera` | framing and animating the render camera: shot sizes, angles, push-in, pull-back, track, crane, whip pan, punch-in, shake, hard cuts, 9:16 framing |
+| `doloyo-keyframe-motion` | hand keys and curves: pose-to-pose, easing and bezier, spacing, holds, arcs, weight, foot pins, blending clips without pops |
+
+Over MCP:
+
+```json tool-call
+[
+  { "tool": "guide_read", "arguments": { "skill": "doloyo-camera" } },
+  { "tool": "guide_read", "arguments": { "skill": "doloyo-camera", "file": "references/camera-math.md" } }
+]
+```
+
+Claude Code users can also copy the folders into `~/.claude/skills/` (or a project's `.claude/skills/`) so they load automatically when a task matches.
+
+## 12. Troubleshooting
 
 - **No browser connected.** The tab is not paired. Give the user the `pairingCode` from `bridge_status` and ask them to open the Agent pill and click Connect. After a server restart the code changes.
 - **403 or "Rejected connection" in the server log.** The page's origin is not allowed. The bridge accepts `http://localhost:5173` and `http://127.0.0.1:5173` by default. For the hosted app start the server with `--allow-hosted`; for your own site use `--origin https://your.site`. Origins must match exactly (scheme, host, port).

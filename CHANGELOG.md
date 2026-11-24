@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Superhero characters removed.** `superhero-m` / `superhero-f` and their GLB files (with the merged hairstyles) are gone from the app, the character list, the Inspector (no more Teen/Adult-only restriction), the MCP tool descriptions and the docs. Back-compat: a saved project or a command (UI, `window.doloyo`, MCP) that still names them loads as `mannequin-m` / `mannequin-f`, with a console warning.
+- **Built-in agent skills** in `skills/`: `doloyo-director`, `doloyo-fight-choreography`, `doloyo-camera`, `doloyo-keyframe-motion` (install them into `~/.claude/skills/` or read them as docs). The MCP `guide_read` tool lists and returns them (`skill` argument), and the package bundles them.
+
 ## 0.6.0 (reference images, renamed to Doloyo)
 
 - **Doloyo.** The product is now called Doloyo ("Your floppy little motion studio."): app and tab title, top bar, About, docs, README (English and Indonesian). Packages: `doloyo` (app) and `doloyo-mcp` (bins `doloyo-mcp` and the compatibility alias `motion-doll-mcp`), MCP server name `doloyo`, `window.doloyo`, GitHub `dkfadhila/doloyo`, web https://doloyo.vercel.app.

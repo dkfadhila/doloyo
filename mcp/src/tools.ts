@@ -1,4 +1,4 @@
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { basename, dirname, extname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,7 +43,7 @@ const bodySpec = z
   .object({
     preset: bodyPreset,
     heightScale: z.number().min(0.9).max(1.1).optional().describe('Fine-tune of the preset height, 0.9 to 1.1 (default 1).'),
-    gender: z.enum(['m', 'f']).optional().describe('Only a subtle proportion difference (shoulder width) and the base character; never chest or hip shape. Default: from the character (mannequin-f / superhero-f = f).'),
+    gender: z.enum(['m', 'f']).optional().describe('Only a subtle proportion difference (shoulder width) and the base character; never chest or hip shape. Default: from the character (mannequin-f = f).'),
   })
   .describe('Body size of a mannequin.');
 const imageMode = z.enum(['background', 'plane', 'camera']).describe('background = screen-space image behind the viewport, plane = textured plane object in the 3D scene, camera = image locked to the render camera frame.');
@@ -68,6 +68,59 @@ function readGuide(): string {
   const candidates = [resolve(here, '..', '..', 'docs', 'AGENT.md'), resolve(here, '..', 'guide', 'AGENT.md')];
   for (const p of candidates) if (existsSync(p)) return readFileSync(p, 'utf8');
   throw new Error('AGENT.md not found (looked in ' + candidates.join(', ') + ')');
+}
+
+/** Built-in agent skills: the repository skills/ folder, or the copy bundled in guide/skills. */
+function skillsDir(): string | null {
+  for (const p of [resolve(here, '..', '..', 'skills'), resolve(here, '..', 'guide', 'skills')]) if (existsSync(resolve(p, 'README.md'))) return p;
+  return null;
+}
+
+export function listSkills(): { name: string; description: string }[] {
+  const dir = skillsDir();
+  if (!dir) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && existsSync(resolve(dir, d.name, 'SKILL.md')))
+    .map((d) => {
+      const md = readFileSync(resolve(dir, d.name, 'SKILL.md'), 'utf8');
+      const desc = /^description:\s*(.+)$/m.exec(md)?.[1]?.trim() ?? '';
+      return { name: d.name, description: desc };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function readSkill(name: string, file?: string): string {
+  const dir = skillsDir();
+  if (!dir) throw new Error('No skills folder found');
+  if (!/^[a-z0-9-]+$/.test(name) || !existsSync(resolve(dir, name, 'SKILL.md'))) {
+    throw new Error(`Unknown skill "${name}". Available: ${listSkills().map((s) => s.name).join(', ')}`);
+  }
+  if (file === undefined) {
+    const refs = existsSync(resolve(dir, name, 'references')) ? readdirSync(resolve(dir, name, 'references')).filter((f) => f.endsWith('.md')) : [];
+    const body = readFileSync(resolve(dir, name, 'SKILL.md'), 'utf8');
+    return refs.length ? `${body}
+
+---
+Reference files (read with guide_read {skill: "${name}", file: "references/<name>"}): ${refs.map((f) => 'references/' + f).join(', ')}
+` : body;
+  }
+  if (!/^references\/[A-Za-z0-9._-]+\.md$/.test(file) || file.includes('..')) throw new Error('file must look like "references/<name>.md"');
+  const p = resolve(dir, name, file);
+  if (!existsSync(p)) throw new Error(`No file ${file} in skill ${name}`);
+  return readFileSync(p, 'utf8');
+}
+
+function guideWithSkills(): string {
+  const skills = listSkills();
+  if (!skills.length) return readGuide();
+  return `${readGuide()}
+
+## Built-in skills
+
+Craft guides for making good animation with these tools. Read one with guide_read {skill: "<name>"} when the task matches.
+
+${skills.map((s) => `- \`${s.name}\`: ${s.description}`).join('\n')}
+`;
 }
 
 // The browser is untrusted here: never take the extension or a path from its reply.
@@ -167,9 +220,16 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
     'guide_read',
     {
       description:
-        'Read the Doloyo agent guide (command semantics, joint axes, keyframe workflow, examples). Read it once before animating.',
+        'Read the Doloyo agent guide (command semantics, joint axes, keyframe workflow, examples) plus the list of built-in skills. Read it once before animating. With skill, returns that skill (craft guide: doloyo-director, doloyo-fight-choreography, doloyo-camera, doloyo-keyframe-motion); with skill and file, one of its reference files.',
+      inputSchema: {
+        skill: z.string().optional().describe('Skill name from the list at the end of the guide, e.g. "doloyo-camera".'),
+        file: z.string().optional().describe('A reference file of that skill, e.g. "references/camera-math.md".'),
+      },
     },
-    guard(async () => text(readGuide())),
+    guard(async (args: { skill?: string; file?: string }) => {
+      if (args.file !== undefined && args.skill === undefined) throw new Error('file needs skill');
+      return text(args.skill === undefined ? guideWithSkills() : readSkill(args.skill, args.file));
+    }) as never,
   );
 
   // ---- read ----
@@ -213,14 +273,14 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
     {
       kind: z.enum(['mannequin', 'cube', 'sphere', 'cylinder', 'camera']),
       name: z.string().optional(),
-      character: z.string().optional().describe('Mannequins only: doll-procedural, mannequin-f (default), mannequin-m, superhero-m, superhero-f or custom:<id> of an imported character.'),
+      character: z.string().optional().describe('Mannequins only: doll-procedural, mannequin-f (default), mannequin-m or custom:<id> of an imported character.'),
       position: vec3.optional().describe('[x,y,z] meters, Y up. Default: next free slot beside the others.'),
-      body: bodySpec.optional().describe('Mannequins only: body size. kecil and pendek use the neutral mannequin-m mesh for both genders (a girl keeps gender f), dewasa f uses mannequin-f. Superhero characters only allow remaja and dewasa.'),
+      body: bodySpec.optional().describe('Mannequins only: body size. kecil and pendek use the neutral mannequin-m mesh for both genders (a girl keeps gender f), dewasa f uses mannequin-f.'),
     },
   );
   command(
     'object_set_character',
-    'Change which character a mannequin is drawn with (the pose and keys are unchanged, any character is just a different view of the same 17-joint pose). Built-in: doll-procedural, mannequin-f, mannequin-m, superhero-m, superhero-f; imported ones are custom:<id> (scene_get shows each mannequin character). material: doll = matte grey, original = the character textures; omit to keep the current one.',
+    'Change which character a mannequin is drawn with (the pose and keys are unchanged, any character is just a different view of the same 17-joint pose). Built-in: doll-procedural, mannequin-f, mannequin-m; imported ones are custom:<id> (scene_get shows each mannequin character). material: doll = matte grey, original = the character textures; omit to keep the current one.',
     {
       object: objectRef,
       character: z.string().min(1),
@@ -229,7 +289,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
   );
   command(
     'object_set_body',
-    'Set the body size of a mannequin: preset kecil (baby ~0.75 m, 4 head-heights), pendek (child ~1.20 m), remaja (teen ~1.62 m) or dewasa (adult), a heightScale 0.9..1.1 fine-tune and/or gender. Proportions (leg, torso, arm, neck, head, shoulder and hip width) change everywhere: IK, foot pins, exports and the picture all match, and the feet stay on the floor. Pose data are rotations, so keys and animation clips work on any body unchanged; hipsPos keys are stored in adult units and scaled by the body. Small presets switch built-in mannequins to the neutral mannequin-m mesh (dewasa female uses mannequin-f). Superhero characters only support remaja and dewasa (error otherwise). Pinned feet are removed (undo brings them back). Baby poses for pose_apply: duduk (sitting), merangkak (crawling), berdiri_pegangan (standing, holding on).',
+    'Set the body size of a mannequin: preset kecil (baby ~0.75 m, 4 head-heights), pendek (child ~1.20 m), remaja (teen ~1.62 m) or dewasa (adult), a heightScale 0.9..1.1 fine-tune and/or gender. Proportions (leg, torso, arm, neck, head, shoulder and hip width) change everywhere: IK, foot pins, exports and the picture all match, and the feet stay on the floor. Pose data are rotations, so keys and animation clips work on any body unchanged; hipsPos keys are stored in adult units and scaled by the body. Small presets switch built-in mannequins to the neutral mannequin-m mesh (dewasa female uses mannequin-f). Pinned feet are removed (undo brings them back). Baby poses for pose_apply: duduk (sitting), merangkak (crawling), berdiri_pegangan (standing, holding on).',
     {
       object: objectRef,
       preset: bodyPreset.optional(),
@@ -416,7 +476,7 @@ export function registerTools(server: McpServer, bridge: Bridge): void {
   );
   command(
     'scene_preset',
-    'Add a formation of new mannequins in an arc facing the audience (+Z): duo (2), trio (3), group5 (5) or keluarga (4: father, child, baby sitting, mother), as ONE undo step. Mixed gender by default (alternating mannequin-f / mannequin-m). clear=true first removes the existing mannequins. character picks one model for every new doll (adults in keluarga follow the family gender for superhero ids). body sets one body size for every doll (not for keluarga, which has fixed sizes).',
+    'Add a formation of new mannequins in an arc facing the audience (+Z): duo (2), trio (3), group5 (5) or keluarga (4: father, child, baby sitting, mother), as ONE undo step. Mixed gender by default (alternating mannequin-f / mannequin-m). clear=true first removes the existing mannequins. character picks one model for every new doll. body sets one body size for every doll (not for keluarga, which has fixed sizes).',
     { preset: z.enum(['duo', 'trio', 'group5', 'keluarga']), character: z.string().optional(), clear: z.boolean().optional(), body: bodySpec.optional() },
   );
   command('timeline_set', 'Set the project fps (1..240), duration in seconds and/or loop flag.', {

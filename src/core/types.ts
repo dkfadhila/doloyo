@@ -55,8 +55,17 @@ export const PROCEDURAL_CHARACTER = 'doll-procedural';
 /** Character given to NEW mannequins. */
 export const DEFAULT_CHARACTER = 'mannequin-f';
 
-export const BUILTIN_CHARACTER_IDS = ['doll-procedural', 'mannequin-f', 'mannequin-m', 'superhero-m', 'superhero-f'];
+export const BUILTIN_CHARACTER_IDS = ['doll-procedural', 'mannequin-f', 'mannequin-m'];
 export const CUSTOM_PREFIX = 'custom:';
+/** Characters that were removed from Doloyo, mapped to the built-in that replaces them (old projects and agent calls keep working). */
+export const RETIRED_CHARACTERS: Record<string, string> = { 'superhero-m': 'mannequin-m', 'superhero-f': 'mannequin-f' };
+/** Map a retired character id to its replacement (with a console warning); any other value is returned unchanged. */
+export function migrateCharacterId<T>(id: T): T | string {
+  if (typeof id !== 'string' || !Object.prototype.hasOwnProperty.call(RETIRED_CHARACTERS, id)) return id;
+  const to = RETIRED_CHARACTERS[id];
+  console.warn(`[doloyo] character "${id}" was removed; using "${to}" instead`);
+  return to;
+}
 export const isCharacterId = (id: unknown): id is string => typeof id === 'string' && (BUILTIN_CHARACTER_IDS.includes(id) || (id.startsWith(CUSTOM_PREFIX) && id.length > CUSTOM_PREFIX.length));
 
 /** Body-size presets: kecil = baby/toddler, pendek = child (~6-7 years), remaja = teenager, dewasa = adult (default look). */

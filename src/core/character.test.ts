@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { bakeCommand, clampLoose, thin, type BakeSample } from './bake';
 import { applyCommand, newProject, normalizeProject, type Command } from './commands';
 import { emptyPose } from './rig';
@@ -23,8 +23,8 @@ describe('object_set_character', () => {
   it('sets character and material, and undo restores both', () => {
     const p = newProject();
     const id = p.objects[0].id;
-    const { r, back } = roundTrip(p, { type: 'object_set_character', object: id, character: 'superhero-f', material: 'original' });
-    expect(r.project.objects[0].character).toBe('superhero-f');
+    const { r, back } = roundTrip(p, { type: 'object_set_character', object: id, character: 'mannequin-m', material: 'original' });
+    expect(r.project.objects[0].character).toBe('mannequin-m');
     expect(r.project.objects[0].material).toBe('original');
     expect(back.project.objects[0].character).toBe(DEFAULT_CHARACTER);
     expect(back.project.objects[0].material).toBe('doll');
@@ -49,8 +49,8 @@ describe('object_set_character', () => {
   });
 
   it('object_add accepts a character; old projects load as the procedural doll', () => {
-    const p = run(newProject(), { type: 'object_add', kind: 'mannequin', character: 'superhero-m' }).project;
-    expect(p.objects[1].character).toBe('superhero-m');
+    const p = run(newProject(), { type: 'object_add', kind: 'mannequin', character: 'doll-procedural' }).project;
+    expect(p.objects[1].character).toBe('doll-procedural');
     const legacy = JSON.parse(JSON.stringify(newProject()));
     for (const o of legacy.objects) {
       delete o.character;
@@ -127,5 +127,27 @@ describe('bakeCommand', () => {
     expect(knee[0]).toBeLessThan(200);
     expect(Math.abs(knee[1])).toBeLessThan(20); // locked axes stay nearly locked
     expect(clampLoose('hips', [400, 0, 0])[0]).toBe(400);
+  });
+
+  it('retired superhero characters load as the matching mannequin, with a warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // a project saved by an older version
+    const old = JSON.parse(JSON.stringify(newProject()));
+    old.objects[0].character = 'superhero-m';
+    old.objects[0].material = 'original';
+    old.objects.push({ ...JSON.parse(JSON.stringify(old.objects[0])), id: 'x2', name: 'Her', character: 'superhero-f' });
+    const n = normalizeProject(old);
+    expect(n.objects.map((o) => o.character)).toEqual(['mannequin-m', 'mannequin-f']);
+    expect(n.objects[0].material).toBe('original');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('superhero-m'));
+    // commands (UI or MCP) that still name them
+    const p = newProject();
+    const r = run(p, { type: 'object_set_character', object: p.objects[0].id, character: 'superhero-m' });
+    expect(r.project.objects[0].character).toBe('mannequin-m');
+    expect(run(p, r.inverse!).project).toEqual(p);
+    expect(run(newProject(), { type: 'object_add', kind: 'mannequin', character: 'superhero-f' }).project.objects[1].character).toBe('mannequin-f');
+    expect(run(newProject(), { type: 'scene_preset', preset: 'duo', character: 'superhero-m', clear: true }).project.objects.every((o) => o.character === 'mannequin-m')).toBe(true);
+    expect(() => run(p, { type: 'object_set_character', object: p.objects[0].id, character: 'superhero-x' })).toThrow(/Unknown character/);
+    warn.mockRestore();
   });
 });

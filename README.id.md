@@ -46,7 +46,7 @@ Langkah pertama: klik sebuah sendi, seret cincinnya untuk memutar (R), geser pla
 *Delapan varian tubuh bawaan: Bayi, Anak, Remaja, dan Dewasa, masing-masing cowok dan cewek. Anak-anak adalah manekin seni yang netral; yang berubah hanya proporsinya. IK, pin kaki, dan export mengikuti ukuran tubuh.*
 
 - Ukuran tubuh dengan slider tinggi dan pose bayi (duduk, merangkak, berdiri sambil pegangan) yang menjaga tubuh tetap di lantai.
-- Manekin dan superhero Quaternius (CC0), atau file `.glb` / `.vrm` milikmu dengan pemetaan tulang. Setiap karakter hanyalah tampilan lain dari pose 17 sendi yang sama.
+- Manekin Quaternius (CC0) dan art doll prosedural, atau file `.glb` / `.vrm` milikmu dengan pemetaan tulang. Setiap karakter hanyalah tampilan lain dari pose 17 sendi yang sama.
 
 ### Library animasi
 
@@ -126,6 +126,10 @@ Setelah itu buka app, klik pil **Agent** (kanan atas), masukkan kode yang diceta
 - [AGENTS.md](AGENTS.md): tutorial langkah demi langkah untuk agent dengan contoh lengkap (melambai, dance crew dengan gerakan kamera, adegan iklan bayi, Copy Dance, IK). Ditulis dalam bahasa Inggris.
 - [docs/AGENT.md](docs/AGENT.md): referensi lengkap tool dan perintah.
 - [mcp/README.md](mcp/README.md): opsi server, model keamanan, dan troubleshooting.
+
+### Skill untuk agent
+
+Folder [skills/](skills/README.md) berisi skill bawaan yang mengajari agent cara bikin animasi yang bagus, bukan cuma cara memanggil tool: `doloyo-director` (dari beat sheet sampai render final, dengan putaran kritik), `doloyo-fight-choreography` (adegan laga, timing klip yang sudah diukur), `doloyo-camera` (bahasa kamera dan framing 9:16 untuk kamera render) dan `doloyo-keyframe-motion` (easing, spacing, menyambung klip dengan mulus). Untuk Claude Code, salin ke `~/.claude/skills/`; agent MCP lain bisa membacanya lewat `guide_read {"skill": "<nama>"}`. Ditulis dalam bahasa Inggris.
 - [docs/GUIDE.md](docs/GUIDE.md): panduan pemakaian app (bahasa Indonesia; juga ada di dalam app lewat tombol bantuan).
 
 ## Privasi

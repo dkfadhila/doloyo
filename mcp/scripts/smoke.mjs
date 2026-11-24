@@ -102,7 +102,14 @@ try {
   // guide
   const guide = textOf(await client.callTool({ name: 'guide_read', arguments: {} }));
   assert.match(guide, /Doloyo/);
-  ok('guide_read');
+  assert.match(guide, /doloyo-camera/);
+  const skill = textOf(await client.callTool({ name: 'guide_read', arguments: { skill: 'doloyo-camera' } }));
+  assert.match(skill, /^---\r?\nname: doloyo-camera/);
+  const ref = textOf(await client.callTool({ name: 'guide_read', arguments: { skill: 'doloyo-camera', file: 'references/camera-math.md' } }));
+  assert.match(ref, /fov/);
+  const badRef = await client.callTool({ name: 'guide_read', arguments: { skill: 'doloyo-camera', file: '../../package.json' } });
+  assert.equal(badRef.isError, true);
+  ok('guide_read (+ skills)');
 
   // no browser
   const noBrowser = await client.callTool({ name: 'scene_get', arguments: {} });
@@ -235,8 +242,8 @@ try {
   assert.ok(!calls.some((c) => c.params?.joint === 'tail'), 'invalid call must not reach the browser');
   ok('zod validation rejects unknown joint');
 
-  const setChar = json(await client.callTool({ name: 'object_set_character', arguments: { object: 'Mannequin 1', character: 'superhero-m', material: 'original' } }));
-  assert.deepEqual(calls.at(-1).params, { type: 'object_set_character', object: 'Mannequin 1', character: 'superhero-m', material: 'original' });
+  const setChar = json(await client.callTool({ name: 'object_set_character', arguments: { object: 'Mannequin 1', character: 'mannequin-m', material: 'original' } }));
+  assert.deepEqual(calls.at(-1).params, { type: 'object_set_character', object: 'Mannequin 1', character: 'mannequin-m', material: 'original' });
   assert.equal(setChar.ok, true);
   ok('object_set_character forwards as dispatch');
 
@@ -379,8 +386,8 @@ try {
   assert.equal(calls.at(-1).params.kind, 'camera');
   ok('camera_set / camera keys / object_add camera forward; fov validated');
 
-  await client.callTool({ name: 'scene_preset', arguments: { preset: 'trio', character: 'superhero-f', clear: true } });
-  assert.deepEqual(calls.at(-1).params, { type: 'scene_preset', preset: 'trio', character: 'superhero-f', clear: true });
+  await client.callTool({ name: 'scene_preset', arguments: { preset: 'trio', character: 'doll-procedural', clear: true } });
+  assert.deepEqual(calls.at(-1).params, { type: 'scene_preset', preset: 'trio', character: 'doll-procedural', clear: true });
   const badPreset = await client.callTool({ name: 'scene_preset', arguments: { preset: 'army' } }).catch((e) => ({ isError: true, content: [{ type: 'text', text: String(e.message) }] }));
   assert.equal(badPreset.isError, true);
   await client.callTool({ name: 'scene_preset', arguments: { preset: 'keluarga', clear: true } });

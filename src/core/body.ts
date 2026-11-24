@@ -171,28 +171,18 @@ export function cleanBody(raw: unknown): BodySpec | undefined {
   return out;
 }
 
-/** True for the built-in superhero characters, which only exist as teen/adult bodies. */
-export const isSuperhero = (character: string) => character.startsWith('superhero-');
 /** True for presets that must not use an adult-shaped mesh. */
 export const isChildPreset = (p: BodyPreset) => p === 'kecil' || p === 'pendek';
 
 /**
  * Character to use for a body. Built-in mannequins: dewasa female = mannequin-f, everything else = the neutral
- * mannequin-m mesh. Superheroes keep their kind and only follow the gender. Procedural and imported characters stay.
+ * mannequin-m mesh. Procedural and imported characters stay.
  */
 export function characterForBody(current: string, preset: BodyPreset, gender: Gender): string {
   if (current.startsWith('mannequin-')) return preset === 'dewasa' && gender === 'f' ? 'mannequin-f' : 'mannequin-m';
-  if (isSuperhero(current)) return gender === 'f' ? 'superhero-f' : 'superhero-m';
   return current;
 }
 
-/** Why a preset cannot be used with a character (or null when it can). */
-export function bodyCharacterError(character: string, preset: BodyPreset): string | null {
-  if (isSuperhero(character) && isChildPreset(preset)) {
-    return `Superhero characters only support the presets remaja and dewasa (got "${preset}"). Use a mannequin or the procedural doll for small bodies.`;
-  }
-  return null;
-}
 
 /** Display height in meters of a body spec for a gender. */
 export function bodyHeight(spec: BodySpec | undefined, gender: Gender): number {

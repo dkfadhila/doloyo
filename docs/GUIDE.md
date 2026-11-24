@@ -141,7 +141,7 @@ Pasang gambar referensi seperti di Blender, dengan tiga cara. Semuanya lokal: ga
 
 Di dialog **Export**:
 
-- **GLB animation**: animasi `.glb` untuk Blender, Unity, atau Unreal, di-bake pada fps pilihanmu (default fps proyek). Pilih semua objek atau **Selected object only**. Karakter skinned (Mannequin, Superhero, import) diekspor sebagai skinned mesh dengan animasi tulang; art doll prosedural diekspor sebagai hirarki node sendi dengan mesh (animasi node, bekerja di Blender). Kamera render ikut sebagai node kamera dengan animasi posisi dan arah; FOV disimpan pada frame pertama karena glTF tidak bisa menganimasikan FOV. Pin kaki sudah ikut diperhitungkan.
+- **GLB animation**: animasi `.glb` untuk Blender, Unity, atau Unreal, di-bake pada fps pilihanmu (default fps proyek). Pilih semua objek atau **Selected object only**. Karakter skinned (Mannequin, import) diekspor sebagai skinned mesh dengan animasi tulang; art doll prosedural diekspor sebagai hirarki node sendi dengan mesh (animasi node, bekerja di Blender). Kamera render ikut sebagai node kamera dengan animasi posisi dan arah; FOV disimpan pada frame pertama karena glTF tidak bisa menganimasikan FOV. Pin kaki sudah ikut diperhitungkan.
 - **BVH**: gerakan 17 sendi satu manekin (terpilih, atau yang pertama) dalam sentimeter, Y ke atas.
 
 ## Preset scene
@@ -155,7 +155,6 @@ Setiap manekin punya ukuran tubuh. Di Inspector, bagian **Body**:
 - **Baby / Child / Teen / Adult** (Bayi / Anak / Remaja / Dewasa): pilih ukuran. Bayi (kecil) kira-kira 12 bulan, 0,75 m, kepala besar, leher pendek, tangan dan kaki pendek. Anak kira-kira 6-7 tahun, 1,20 m. Remaja 1,62 m (cewek 1,58 m). Dewasa 1,75 m (cewek 1,65 m) adalah tampilan asli.
 - **Height**: slider ±10% dari tinggi preset; angkanya (meter) tampil di sebelahnya. Geser slider untuk menyetel, satu geseran = satu langkah undo. **Reset height** mengembalikan ke 1,0.
 - **M / F**: cowok atau cewek. Perbedaannya halus saja (bahu sedikit lebih sempit), tidak pernah bentuk dada atau pinggul. Dewasa cewek memakai Mannequin F; ukuran lain memakai manekin netral (Mannequin M) untuk kedua gender, supaya anak dan remaja tampil sebagai manekin seni yang netral.
-- Karakter Superhero hanya punya Teen dan Adult; tombol Baby dan Child dinonaktifkan.
 
 Di menu **+** Outliner ada tambah cepat untuk 8 varian: Baby boy, Baby girl, Boy (child), Girl (child), Teen boy, Teen girl, Man, Woman (label UI dalam bahasa Inggris).
 
@@ -191,14 +190,13 @@ Pilih di Inspector, bagian **Character**:
 
 - **Art doll (procedural)**: boneka seni buatan sendiri (torso melengkung, anggota badan meruncing, sendi bola, kepala telur, tangan mitten), abu matte `#CFCFD2`.
 - **Mannequin F** dan **Mannequin M** (Quaternius, CC0): manekin mulus ber-skeleton. Mannequin F adalah **default** untuk manekin baru.
-- **Superhero M** dan **Superhero F** (Quaternius, CC0): karakter bertekstur.
 - Karakter hasil import (lihat di bawah) muncul dengan label "(imported)".
 
-**Material**: `Doll` = abu matte (biru lembut saat terpilih), `Original` = tekstur asli file. Superhero memakai Original secara default.
+**Material**: `Doll` = abu matte (biru lembut saat terpilih), `Original` = tekstur asli file.
 
 Klik badan karakter tetap memilih sendi terdekat (ada volume klik tak terlihat di posisi sendi), jadi gizmo rotasi bekerja seperti biasa. Sendi terpilih ditandai bola biru kecil.
 
-Superhero M dan F punya satu gaya rambut masing-masing (Quaternius, CC0, terikat ke tulang kepala). Rambut hanya tampil pada material **Original**.
+Proyek lama yang masih memakai karakter Superhero M / F (sudah dihapus) otomatis dibuka dengan Mannequin M / F.
 
 ## Import karakter
 

@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -56,6 +56,44 @@ function checkArgs(tools: Map<string, Shape>, name: string, args: Record<string,
   return errs;
 }
 
+/** Check every "json tool-call" block of a Markdown file; returns the errors and adds the used tool names to `used`. */
+function checkToolBlocks(tools: Map<string, Shape>, md: string, file: string, used: Set<string>): string[] {
+  const errors: string[] = [];
+  for (const b of blocks(md).filter((x) => /^json\s+tool-call\b/.test(x.info))) {
+    const where = `${file} line ${b.line}`;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(b.body);
+    } catch (e) {
+      errors.push(`${where}: not valid JSON (${(e as Error).message})`);
+      continue;
+    }
+    const calls = (Array.isArray(parsed) ? parsed : [parsed]) as Call[];
+    for (const c of calls) {
+      if (!c || typeof c.tool !== 'string' || typeof c.arguments !== 'object' || c.arguments === null || Array.isArray(c.arguments)) {
+        errors.push(`${where}: a call must be {"tool": name, "arguments": {...}}`);
+        continue;
+      }
+      used.add(c.tool);
+      errors.push(...checkArgs(tools, c.tool, c.arguments, where));
+      if (c.tool === 'batch') {
+        const cmds = (c.arguments as { commands?: { type?: unknown }[] }).commands ?? [];
+        cmds.forEach((cmd, i) => {
+          const { type, ...rest } = cmd as { type: string } & Record<string, unknown>;
+          if (typeof type !== 'string' || type === 'batch') return void errors.push(`${where}: batch command ${i} needs a "type" that is an edit tool`);
+          used.add(type);
+          if (type === 'image_add') {
+            if ('path' in rest) errors.push(`${where}: image_add inside batch cannot take "path" (use the image_add tool)`);
+            return;
+          }
+          errors.push(...checkArgs(tools, type, rest, `${where} batch[${i}]`));
+        });
+      }
+    }
+  }
+  return errors;
+}
+
 describe.skipIf(!haveMcp)('AGENTS.md tool calls', () => {
   const md = readFileSync(resolve(root, 'AGENTS.md'), 'utf8');
   const toolBlocks = blocks(md).filter((b) => /^json\s+tool-call\b/.test(b.info));
@@ -71,40 +109,8 @@ describe.skipIf(!haveMcp)('AGENTS.md tool calls', () => {
   it('every tool call names a registered tool with valid arguments', async () => {
     const tools = await registeredTools();
     expect(tools.size).toBeGreaterThan(30);
-    const errors: string[] = [];
     const used = new Set<string>();
-    for (const b of toolBlocks) {
-      const where = `AGENTS.md line ${b.line}`;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(b.body);
-      } catch (e) {
-        errors.push(`${where}: not valid JSON (${(e as Error).message})`);
-        continue;
-      }
-      const calls = (Array.isArray(parsed) ? parsed : [parsed]) as Call[];
-      for (const c of calls) {
-        if (!c || typeof c.tool !== 'string' || typeof c.arguments !== 'object' || c.arguments === null || Array.isArray(c.arguments)) {
-          errors.push(`${where}: a call must be {"tool": name, "arguments": {...}}`);
-          continue;
-        }
-        used.add(c.tool);
-        errors.push(...checkArgs(tools, c.tool, c.arguments, where));
-        if (c.tool === 'batch') {
-          const cmds = (c.arguments as { commands?: { type?: unknown }[] }).commands ?? [];
-          cmds.forEach((cmd, i) => {
-            const { type, ...rest } = cmd as { type: string } & Record<string, unknown>;
-            if (typeof type !== 'string' || type === 'batch') return void errors.push(`${where}: batch command ${i} needs a "type" that is an edit tool`);
-            used.add(type);
-            if (type === 'image_add') {
-              if ('path' in rest) errors.push(`${where}: image_add inside batch cannot take "path" (use the image_add tool)`);
-              return;
-            }
-            errors.push(...checkArgs(tools, type, rest, `${where} batch[${i}]`));
-          });
-        }
-      }
-    }
+    const errors = checkToolBlocks(tools, md, 'AGENTS.md', used);
     expect(errors).toEqual([]);
     // the tutorials cover the main workflows
     for (const t of ['scene_get', 'batch', 'scene_preset', 'anim_apply', 'camera_set', 'render_export', 'image_add', 'image_set', 'mocap_from_video', 'ik_pin', 'ik_reach', 'ik_bake', 'viewport_snapshot', 'bridge_status']) {
@@ -119,5 +125,47 @@ describe.skipIf(!haveMcp)('AGENTS.md tool calls', () => {
     expect(checkArgs(tools, 'joint_set', { joint: 'head' }, 'x').length).toBeGreaterThan(0);
     expect(checkArgs(tools, 'render_export', { format: 'mp4', url: 'x' }, 'x').length).toBeGreaterThan(0);
     expect(checkArgs(tools, 'image_add', { path: '/a.png', mode: 'plane' }, 'x')).toEqual([]);
+  });
+});
+
+/** The built-in agent skills (skills/<name>/SKILL.md + references) must name real tools with valid arguments too. */
+const skillsRoot = resolve(root, 'skills');
+function mdFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? mdFiles(resolve(dir, d.name)) : d.name.endsWith('.md') ? [resolve(dir, d.name)] : []));
+}
+
+describe.skipIf(!haveMcp || !existsSync(skillsRoot))('skills', () => {
+  const dirs = existsSync(skillsRoot) ? readdirSync(skillsRoot, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name) : [];
+
+  it('every skill has SKILL.md with front matter name (= folder) and a description', () => {
+    expect(dirs.length).toBeGreaterThanOrEqual(3);
+    for (const d of dirs) {
+      const md = readFileSync(resolve(skillsRoot, d, 'SKILL.md'), 'utf8');
+      const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(md)?.[1] ?? '';
+      expect(/^name:\s*(.+)$/m.exec(fm)?.[1]?.trim(), d).toBe(d);
+      expect((/^description:\s*(.+)$/m.exec(fm)?.[1] ?? '').length, d).toBeGreaterThan(60);
+    }
+  });
+
+  it('every json tool-call block in the skills is a valid call', async () => {
+    const tools = await registeredTools();
+    const used = new Set<string>();
+    const errors = mdFiles(skillsRoot).flatMap((f) => checkToolBlocks(tools, readFileSync(f, 'utf8'), relative(root, f).split('\\').join('/'), used));
+    expect(errors).toEqual([]);
+    expect(used.size).toBeGreaterThanOrEqual(5);
+  });
+
+  it('every tool name written in backticks in a skill exists', async () => {
+    const tools = await registeredTools();
+    const cmds = new Set(['key_remove', 'key_set_easing']);
+    const unknown: string[] = [];
+    for (const f of mdFiles(skillsRoot)) {
+      for (const m of readFileSync(f, 'utf8').matchAll(/`([a-z]+_[a-z_]+)`/g)) {
+        const n = m[1];
+        if (!/^(anim|camera|key|keys|ik|pose|object|scene|timeline|playhead|render|image|viewport|guide|bridge|joint|mocap)_/.test(n)) continue;
+        if (!tools.has(n) && !cmds.has(n)) unknown.push(`${relative(root, f)}: ${n}`);
+      }
+    }
+    expect(unknown).toEqual([]);
   });
 });

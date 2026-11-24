@@ -256,9 +256,9 @@ describe('scene_preset', () => {
   });
 
   it('arranges an arc: centered, symmetric, ends toward the audience and turned inward; uses the chosen character', () => {
-    const p = run(newProject(), { type: 'scene_preset', preset: 'group5', character: 'superhero-f', clear: true });
+    const p = run(newProject(), { type: 'scene_preset', preset: 'group5', character: 'doll-procedural', clear: true });
     expect(p.objects).toHaveLength(5);
-    expect(p.objects.every((o) => o.character === 'superhero-f' && o.kind === 'mannequin')).toBe(true);
+    expect(p.objects.every((o) => o.character === 'doll-procedural' && o.kind === 'mannequin')).toBe(true);
     const xs = p.objects.map((o) => o.position[0]);
     expect(xs.reduce((a, b) => a + b, 0)).toBeCloseTo(0, 3);
     expect(xs).toEqual([...xs].sort((a, b) => a - b));

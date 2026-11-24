@@ -46,7 +46,7 @@ First steps: click a joint, drag the ring to rotate it (R), move the playhead, p
 *The eight built-in body variants: Baby, Child, Teen and Adult, each male and female. Children are neutral art mannequins; only proportions change. IK, foot pins and exports follow the body.*
 
 - Body sizes with a height slider and baby poses (sitting, crawling, standing and holding on) that keep the body on the floor.
-- Quaternius mannequins and superheroes (CC0), or your own `.glb` / `.vrm` file with bone mapping. Every character is just another view of the same 17-joint pose.
+- Quaternius mannequins (CC0) and a procedural art doll, or your own `.glb` / `.vrm` file with bone mapping. Every character is just another view of the same 17-joint pose.
 
 ### Animation library
 
@@ -126,6 +126,10 @@ Then open the app, click the **Agent** pill (top right), enter the code the serv
 - [AGENTS.md](AGENTS.md): step-by-step tutorial for agents with worked examples (wave, dance crew with a camera move, a baby commercial scene, Copy Dance, IK).
 - [docs/AGENT.md](docs/AGENT.md): the full tool and command reference.
 - [mcp/README.md](mcp/README.md): server options, security model and troubleshooting.
+
+### Agent skills
+
+[skills/](skills/README.md) holds built-in skills that teach an agent the craft, not just the tools: `doloyo-director` (beat sheet to final render with a critique loop), `doloyo-fight-choreography` (action beats, measured clip timings), `doloyo-camera` (shot language and 9:16 framing for the render camera) and `doloyo-keyframe-motion` (easing, spacing, blending clips). Copy them into `~/.claude/skills/` for Claude Code, or let any MCP agent read them with `guide_read {"skill": "<name>"}`.
 
 ## Privacy
 

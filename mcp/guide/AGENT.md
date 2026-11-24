@@ -34,7 +34,7 @@ A denied call returns an error that names the required mode.
 
 ```
 bridge_status      -> {connected, pairingCode, port}
-guide_read         -> this document
+guide_read {skill?, file?}  -> this document plus the list of built-in skills; with skill, that skill (skills/<name>/SKILL.md); with file, one of its references/*.md
 scene_get          -> fps, duration, time, objects (id, name, kind, transform, non-rest pose, key times; image planes list their image options), backgrounds {viewport, camera}, joints, poses, canUndo/canRedo
 object_add object_set_character object_set_body object_remove object_transform joint_set pose_apply pose_save pose_delete pose_mirror joint_reset
 key_add key_remove key_move key_set_easing keys_edit keys_remove timeline_set playhead_seek batch      (same fields as the commands below)
@@ -80,7 +80,7 @@ Bridge wire protocol (for custom clients): bridge to browser `{id, type:"call", 
 
 Every mannequin has a `character` (default `mannequin-f`) and a `material` (`doll` matte grey, or `original` textures). A character is only a *view* of the canonical 17-joint pose: joint rotations, hips offset and keys are identical for all of them, so every command, `batch`, undo, export and onion skin works the same. Switch with `object_set_character`; the pose is untouched.
 
-Built-in ids: `doll-procedural` (smooth art doll), `mannequin-f`, `mannequin-m`, `superhero-m`, `superhero-f` (Quaternius, CC0). `custom:<id>` ids are characters the user imported (.glb/.vrm) in the browser; `scene_get` shows each mannequin's `character`. An imported character can only be chosen by the user in the UI (File > Import character...), but you can switch a mannequin to an existing `custom:` id with `object_set_character`. Skinned characters load asynchronously; `viewport_snapshot` and `render_export` wait for them.
+Built-in ids: `doll-procedural` (smooth art doll), `mannequin-f`, `mannequin-m` (Quaternius, CC0). The former `superhero-m` / `superhero-f` were removed; projects and calls that still name them get `mannequin-m` / `mannequin-f` (with a console warning). `custom:<id>` ids are characters the user imported (.glb/.vrm) in the browser; `scene_get` shows each mannequin's `character`. An imported character can only be chosen by the user in the UI (File > Import character...), but you can switch a mannequin to an existing `custom:` id with `object_set_character`. Skinned characters load asynchronously; `viewport_snapshot` and `render_export` wait for them.
 
 ## Body sizes
 
@@ -96,7 +96,7 @@ Every mannequin has an optional `body: { preset, heightScale?, gender? }` (scene
 `heightScale` (0.9 to 1.1) fine-tunes the preset height. `gender` ("m" or "f") only nudges proportions (shoulder width) and picks the base character; it is derived from the character id when omitted.
 
 - `object_set_body { object, preset?, heightScale?, gender? }` is one undo step. Changing the body drops the foot pins (undo brings them back).
-- **Neutral children rule**: `kecil`, `pendek` and `remaja` use the neutral `mannequin-m` mesh for both genders (a girl is `gender: "f"` on that mesh, never an adult female shape); only `dewasa` + `f` uses `mannequin-f`. Built-in mannequins switch mesh automatically. `superhero-m/f` only allow `remaja` and `dewasa`; asking for a smaller preset fails with an error. Procedural doll and imported characters keep their character and are just scaled.
+- **Neutral children rule**: `kecil`, `pendek` and `remaja` use the neutral `mannequin-m` mesh for both genders (a girl is `gender: "f"` on that mesh, never an adult female shape); only `dewasa` + `f` uses `mannequin-f`. Built-in mannequins switch mesh automatically. Procedural doll and imported characters keep their character and are just scaled.
 - Everything uses the same proportions: FK, `ik_reach` / `ik_pin` (limb lengths of the body), Copy Dance foot lock, onion ghosts, pick volumes, GLB and BVH export (joint offsets of the body; skinned characters keep the skin with scaled bones) and the picture. Feet stay on the floor for every preset.
 - Poses and keys are rotations, so any pose, baked clip or mocap result works on any body. **`hipsPos` (the hips translation channel and keys) is stored in adult rig units and multiplied by the body hips height ratio when evaluated** (`hipsScale` = hips height of the body / 0.95 m), so a jump or crouch keeps the feet on the floor. `joint_set` with `position` therefore takes adult units too.
 - Baby poses for any body: `duduk` (sitting on the floor, legs forward), `merangkak` (crawling on hands and knees), `berdiri_pegangan` (standing, arms raised as if holding on). When applied they solve `hipsPos.y` from the body so the contacts (feet, knees, hands, seat) rest on the floor; they are designed for `kecil` (on larger bodies `merangkak` hands can hover).
@@ -156,7 +156,7 @@ Animatable channels: `position`, `rotation`, `scale`, and for mannequins `hipsPo
 ```
 object_add       { kind: "mannequin"|"cube"|"sphere"|"cylinder"|"camera", name?, position?, character?, body?: { preset, heightScale?, gender? } }   // one camera at most; camera_set also creates it
 object_set_body { object, preset?: "kecil"|"pendek"|"remaja"|"dewasa", heightScale?: 0.9..1.1, gender?: "m"|"f" }   // mannequin only; see Body sizes
-object_set_character { object, character: "doll-procedural"|"mannequin-f"|"mannequin-m"|"superhero-m"|"superhero-f"|"custom:<id>", material?: "doll"|"original" }   // mannequin only; pose unchanged
+object_set_character { object, character: "doll-procedural"|"mannequin-f"|"mannequin-m"|"custom:<id>", material?: "doll"|"original" }   // mannequin only; pose unchanged
 object_remove    { object }
 object_transform { object, name?, position?, rotation?, scale? }
 joint_set        { object, joint, rotation?: [x,y,z], position?: [x,y,z] }   // position: hips only (offset from rest)
@@ -241,7 +241,7 @@ As MCP tools `image_add` takes `path` (an absolute path on the machine running t
 
 ## Scene presets and multi-key edits
 
-`scene_preset { preset: "trio", character: "superhero-f", clear: true }` adds 2, 3, 4 or 5 new mannequins (`keluarga` = father, child, baby sitting in the `duduk` pose, mother; without `character` the dolls alternate Mannequin F / Mannequin M; `body` gives every doll one size, not allowed for keluarga) in an arc facing +Z (ends curve toward the audience and turn inward), as one undo step; `clear` first removes the existing mannequins. `keys_edit` / `keys_remove` change several keys as one undo step (see Commands).
+`scene_preset { preset: "trio", character: "doll-procedural", clear: true }` adds 2, 3, 4 or 5 new mannequins (`keluarga` = father, child, baby sitting in the `duduk` pose, mother; without `character` the dolls alternate Mannequin F / Mannequin M; `body` gives every doll one size, not allowed for keluarga) in an arc facing +Z (ends curve toward the audience and turn inward), as one undo step; `clear` first removes the existing mannequins. `keys_edit` / `keys_remove` change several keys as one undo step (see Commands).
 
 ## Important semantics
 
